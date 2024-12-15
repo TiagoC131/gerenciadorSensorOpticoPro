@@ -1,0 +1,6 @@
+Biblioteca sensorOpticoPro:
+
+Função ajustarDistanciaSensorOptico ainda não Funciona;
+
+Erro na função calcularRPM, valores incorretos, possivelmente ao fazer o loop, ainda não analisei a fundo...
+	Parou de fazer leitura apos a implementação da biblioteca gerenciadorComandos.H

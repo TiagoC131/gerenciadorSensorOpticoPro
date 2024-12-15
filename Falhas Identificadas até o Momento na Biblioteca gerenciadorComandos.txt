@@ -1,0 +1,46 @@
+Biblioteca gerenciadorComandos:
+ Ao enviar um comando sem o valor a função analisarComando detecta o comando normalmente;
+	Enviando Comando: numRiscos
+	Analizando o Comando: numRiscos
+	Comando Analizado: numRiscos
+	Não foi encontrado nenhum Espaço no Comando
+	Comando: numRiscos
+	Número de valores: 0
+
+ Ao enviar um comando com valor de 1 digito a função analisarComando  não detecta o comando porem detecta que tem um valor;
+	Enviando Comando: numRiscos 9
+	Analizando o Comando: numRiscos 9
+	Comando Analizado: numRiscos 9
+	Foi encontrado um Espaço no Comando
+	Comando: 
+	Número de valores: 1
+	Comando inválido ou vazio.
+
+ Ao enviar um comando com valor de 2 digitos a função analisarComando  não detecta o comando porem detecta que tem dois valores;
+	Enviando Comando: numRiscos 99
+	Analizando o Comando: numRiscos 99
+	Comando Analizado: numRiscos 99
+	Foi encontrado um Espaço no Comando
+	Comando: 
+	Número de valores: 1
+	Comando inválido ou vazio.
+
+ Ao enviar um comando com valor de 3 digitos ou mais a função analisarComando  não detecta o comando nem o valor;
+	Enviando Comando: numRiscos 999
+	Analizando o Comando: numRiscos 999
+	Comando Analizado: numRiscos 999
+	Foi encontrado um Espaço no Comando
+	Comando: 
+	Número de valores: 0
+	Comando inválido ou vazio.
+
+ Ao enviar um comando com dois valores de 1 digito ou mais a função analisarComando  não detecta o comando nem os valores;
+	Enviando Comando: numRiscos 9 9
+	Analizando o Comando: numRiscos 9 9
+	Comando Analizado: numRiscos 9 9
+	Foi encontrado um Espaço no Comando
+	Comando: 
+	Número de valores: 0
+	Comando inválido ou vazio.
+
+Acredito que pessovelmente o erro esteja na linha "comando.valores[i] = valorStr.toFloat();" da função analisarComando();
