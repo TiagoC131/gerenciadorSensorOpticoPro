@@ -86,6 +86,10 @@ unsigned long sensorOpticoPro::lerInstanteInicial()
     return _instanteInicial;
 }
 
+uint16_t sensorOpticoPro::lerRpmDesejado() const {
+    return _rpmDesejado;
+}
+
 uint8_t sensorOpticoPro::lerNumRiscos() const {
     return _numRiscos;
 }
@@ -103,55 +107,75 @@ float sensorOpticoPro::lerAnguloAtual() const {
 // Define o novo RPM desejado. Se o valor for negativo, utiliza o valor padrão.
 void sensorOpticoPro::novoRpmDesejado(uint16_t novoRPM) 
 {
-  if (novoRPM > 0) {
+	/*
+	if (novoRPM < 0 || novoRPM > 65535) {
+        Serial.print("Erro: O valor para 'rpmDesejado' deve estar entre 1 e 1500.");
+        Serial.print(" Valor fornecido: ");
+        Serial.println(novoRPM);
+        return; // Saída antecipada da função em caso de erro
+    } /* */
+
     _rpmDesejado = novoRPM;
 	calcularTempoMinimoEntrePulsacoes();
-  } else {
-    Serial.print("O RPM deve ser de valor positivo, caso contrario será utilizado o valor padrão.");
-  }
 }
 
 // Define o número de riscos no disco. Se o valor for menor ou igual a zero, utiliza o valor padrão.
 void sensorOpticoPro::novoNumRiscos(uint8_t novoNumRiscos) 
 {
-  if (novoNumRiscos >= 0) {
+	/*
+	if (novoNumRiscos < 1 || novoNumRiscos > 255) {
+        Serial.print("Erro: O valor para 'numRiscos' deve estar entre 1 e 255.");
+        Serial.print(" Valor fornecido: ");
+        Serial.println(novoNumRiscos);
+        return; // Saída antecipada da função em caso de erro
+    } /* */
+
     _numRiscos = novoNumRiscos;
 	calcularTempoMinimoEntrePulsacoes();
-  } else {
-    Serial.print("O número de riscos deve ser maior que zero, caso contrario será utilizado o valor padrão.");
-  }
 }
 
 // Define o Fator de ajuste para o limiar de detecção compensar variações na iluminação ambiente, o valor deve ser positivo.
 void sensorOpticoPro::novoFatorAjusteLimiar(float novoFator) 
 {
-  if (novoFator > 0.0) {
+	/*
+	if (novoFator <= 0.0) {
+        Serial.print("Erro: O valor para 'fatorAjusteLimiar' deve ser maior que 0.0.");
+        Serial.print(" Valor fornecido: ");
+        Serial.println(novoFator);
+        return; // Saída antecipada da função em caso de erro
+    } /* */
+
     _fatorAjusteLimiar = novoFator;
-  } else {
-    Serial.print("O fator de ajuste deve ser maior que zero, caso contrario será utilizado o valor padrão.");
-  }
 }
 
 // Define o número de amostras utilizadas para calcular o limiar ideal.
 // Um valor maior aumenta a precisão, mas pode diminuir o desempenho.
 void sensorOpticoPro::novoNumAmostrasLimiar(uint16_t novoNumAmostrasLimiar) 
 {
-  if (novoNumAmostrasLimiar > 0) {
+	/*
+	if (novoNumAmostrasLimiar < 0 || novoNumAmostrasLimiar > 65535) {
+        Serial.print("Erro: O valor ideal para 'numAmostrasLimiar' deve estar entre 1 e 100, números maiores podera causar atraso no calculo.");
+        Serial.print(" Valor fornecido: ");
+        Serial.println(novoNumAmostrasLimiar);
+        return; // Saída antecipada da função em caso de erro
+    } /* */
+
     _NUM_AMOSTRAS_calcLimiar = novoNumAmostrasLimiar;
-  } else {
-    Serial.print("O número de amostras deve ser maior que zero, caso contrario será utilizado o valor padrão.");
-  }
 }
 
 // Define o número de amostras utilizadas para o Calculo de Detecção de Movimento.
 // Um valor maior aumenta a precisão, mas pode diminuir o desempenho.
 void sensorOpticoPro::novoNumAmostrasDetecMov(uint16_t novoNumAmostrasDetecMov) 
 {
-  if (novoNumAmostrasDetecMov > 0) {
+	/*
+	if (novoNumAmostrasDetecMov < 0 || novoNumAmostrasDetecMov > 65535) {
+        Serial.print("Erro: O valor ideal para 'numAmostrasDetecMov' deve estar entre 1 e 100, números maiores podera causar atraso no calculo.");
+        Serial.print(" Valor fornecido: ");
+        Serial.println(novoNumAmostrasDetecMov);
+        return; // Saída antecipada da função em caso de erro
+    } /* */
+
     _NUM_AMOSTRAS_detecMov = novoNumAmostrasDetecMov;
-  } else {
-    Serial.print("O número de amostras deve ser maior que zero, caso contrario será utilizado o valor padrão.");
-  }
 }
 
 // A função transforma um valor numérico que representa um estado digital (alto ou baixo) em uma string descritiva.
@@ -626,9 +650,10 @@ float sensorOpticoPro::calcularRPM() {
 		}
 }
 
+//Utilizado para ajustar a distancia ideal entre Sensor Óptico e Disco Decodificador.
 void sensorOpticoPro::ajustarDistanciaSensorOptico() {
     Serial.println("Ajuste da distancia entre Sensor Óptico e disco decodificador iniciada!");
-  
+  /*
     // Medir o tempo alto
     unsigned long tempoInicio = millis();
     while (digitalRead(_pinoSensor) == LOW) {
@@ -680,4 +705,5 @@ if (tempoAlto == 0 && tempoBaixo == 0) {
 } else {
     Serial.println("Distância Perfeita entre o Sensor e o Disco!");
 }
+/* */
 }
