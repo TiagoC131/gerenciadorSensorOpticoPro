@@ -42,31 +42,29 @@
 #ifndef gerenciadorComandos_h // Define um guarda de inclusão para evitar inclusões múltiplas do cabeçalho. Se 'gerenciadorComandos_h' não estiver definido, ele será definido agora.
 #define gerenciadorComandos_h // Define o identificador 'gerenciadorComandos_h'.
 
-//Variaveis
-namespace gerenciadorComandosInternos {
-  const int maxValores = 5; // Maximo de Valores que um comando pode enviar
-}
 
 // Forward declaration da biblioteca
 class sensorOpticoPro; // Declaração prévia (forward declaration) da classe sensorOpticoPro. Isso diz ao compilador que essa classe existe, mesmo que sua definição completa esteja em outro lugar (sensorOpticoPro.h). Isso é necessário porque ComandoInfo usa sensorOpticoPro&
 
 // Define uma estrutura para representar um comando e seus valores.
 struct Comando {// Define uma estrutura chamada 'Comando' para armazenar as informações de um comando.
+  //const int maxComandos = 10; // Defina um tamanho máximo de Comandos para a tabela
   String nome; // Armazena o Nome do comando recebido (ex: "status", "configurarRPM").
-  float valores[gerenciadorComandosInternos::maxValores]; // Array para armazenar a quantidade de valores de ponto flutuante associados ao comando de acordo com a variavel (maxValores).
+  const static int maxValores = 5; // Maximo de Valores que um comando pode enviar
+  String valores[maxValores]; // Array para armazenar a quantidade de valores de ponto flutuante associados ao comando de acordo com a variavel (maxValores).
   int numValores = 0; // Número de valores efetivamente presentes no array 'valores'. Inicializada com 0.
 };
 
 // Define uma estrutura para associar nomes de comandos a funções de tratamento.
 struct ComandoInfo { // Define uma estrutura chamada 'ComandoInfo' para associar nomes de comandos a funções.
   const char* nome; // Armazena o nome do comando (string C).
-  void (*funcao)(Comando, sensorOpticoPro&); // Ponteiro para uma função que recebe um objeto Comando e uma referência a sensorOpticoPro como argumentos e não retorna nada (void). 'sensorOpticoPro&' indica passagem por referência.
+  void (*funcao)(Comando, sensorOpticoPro&); // Ponteiro para uma função que recebe um objeto Comando e uma referência a sensorOpticoPro como Valores e não retorna nada (void). 'sensorOpticoPro&' indica passagem por referência.
       /*
      * Ponteiro para uma função de tratamento de comando.
      *
      * 'funcao' pode apontar para qualquer função que:
      *   - Não retorne valor (void).
-     *   - Receba dois argumentos:
+     *   - Receba dois Valores:
      *     - Um objeto 'Comando' (passado por valor - uma cópia é feita).
      *     - Uma REFERÊNCIA para um objeto 'sensorOpticoPro' (passado por referência - o objeto original é modificado).
      *
@@ -98,10 +96,14 @@ struct ComandoInfo { // Define uma estrutura chamada 'ComandoInfo' para associar
 extern ComandoInfo tabelaComandos[]; //O uso de extern é crucial para evitar erros de múltiplas definições na Linkagem
 
 class gerenciadorComando {
+private:
+    //int numComandos = 0; // Contador de comandos adicionados
 public:
   // Declara as funções de análise e processamento de comandos.
   Comando analisarComando(String comandoRecebido); // Analisa a string de comando e retorna uma estrutura Comando.
   void processarComando(Comando comando, sensorOpticoPro& sensor); // Processa um comando, chamando a função de tratamento correspondente.
+
+
 };
 
 #endif // Fim do guarda de inclusão.
