@@ -42,15 +42,19 @@ void loop() {
       String comandoRecebido = String(comandoRecebidoBuffer);
       comandoRecebido.trim(); // Remove espaços extras
 
-      Serial.print("Enviando Comando: ");
-      Serial.println(comandoRecebido);
+      //Serial.print("Enviando Comando: ");
+      //Serial.println(comandoRecebido);
 
       Comando comando = gerenciador.analisarComando(comandoRecebido);
 
-      Serial.print("Comando: ");
-      Serial.println(comando.nome);
-      Serial.print("Número de valores: ");
-      Serial.println(comando.numValores);
+      //Serial.print("Comando: ");
+      //Serial.println(comando.nome);
+      //Serial.print("Número de valores: ");
+      //Serial.println(comando.numValores);
+      //Serial.print("Primeiro Valor: ");
+      //Serial.println(comando.valores[0]);
+      //Serial.print("Segundo Valor: ");
+      //Serial.println(comando.valores[1]);
 
       if (comando.nome.length() > 0) {
           bool comandoEncontrado = false;
@@ -62,7 +66,9 @@ void loop() {
               }
           }
           if(!comandoEncontrado){
-              Serial.println("Comando não encontrado na tabela de comandos");
+            Serial.print("O comando '");
+            Serial.print(comando.nome);
+            Serial.println("' não existe. Use o comando 'ajuda' para ver a lista de comandos válidos.");
           }
       } else {
           Serial.println("Comando inválido ou vazio.");
