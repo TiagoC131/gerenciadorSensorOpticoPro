@@ -116,6 +116,7 @@ class sensorOpticoPro
     
     bool statusConexaoSensorOptico(); // Verifica o Status da Conexão com o Sensor
     unsigned long lerInstanteInicial(); // Getter para acessar o instante inicial do Processo.
+    uint16_t lerRpmDesejado() const; // Getter para acessar o valor do RPM Desejado.
     uint8_t lerNumRiscos() const; // Getter para acessar o valor da quantidade de Riscos do Disco.
     float lerRpmAtual() const; // Getter para acessar o valor do RPM Atual.
     float lerAnguloAtual() const; // Getter para acessar o valor do Angulo Atual.
