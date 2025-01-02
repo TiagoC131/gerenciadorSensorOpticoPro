@@ -41,16 +41,15 @@
                    // velocidade angular, além da constante "PI", essencial para operações trigonométricas.
 #include "sensorOpticoPro.h" // Inclui o cabeçalho desta biblioteca
 
-
 /******************************************************************************
  * Definir Construtor
  ******************************************************************************/
 
 sensorOpticoPro::sensorOpticoPro(uint8_t pinoSensor) 
-	: _pinoSensor(pinoSensor)
+	: _pinoSensor(pinoSensor), _estadoAnterior(LOW), _tempoAlto(0)
 {
 	// Configura o pino como entrada
-        pinMode(_pinoSensor, INPUT_PULLUP);
+        pinMode(_pinoSensor, INPUT);
 }
 		
 void sensorOpticoPro::configurarParametrosSensorOptico(uint8_t config_numRiscos, uint16_t config_rpmInicial) 
@@ -66,7 +65,7 @@ void sensorOpticoPro::configurarParametrosSensorOptico(uint8_t config_numRiscos,
         return;
     }
     _numRiscos = config_numRiscos;
-    _rpmDesejado = config_rpmInicial;
+    _rpmMaximo = config_rpmInicial;
 
 	///* Apenas para Depuração... */ Serial.println("Parametros do Sensor Óptico configurados com sucesso.\n");
 
@@ -87,7 +86,7 @@ unsigned long sensorOpticoPro::lerInstanteInicial()
 }
 
 uint16_t sensorOpticoPro::lerRpmDesejado() const {
-    return _rpmDesejado;
+    return _rpmMaximo;
 }
 
 uint8_t sensorOpticoPro::lerNumRiscos() const {
@@ -105,7 +104,7 @@ float sensorOpticoPro::lerAnguloAtual() const {
 
 
 // Define o novo RPM desejado. Se o valor for negativo, utiliza o valor padrão.
-void sensorOpticoPro::novoRpmDesejado(uint16_t novoRPM) 
+void sensorOpticoPro::novoRpmMaximo(uint16_t novoRPM) 
 {
 	/*
 	if (novoRPM < 0 || novoRPM > 65535) {
@@ -115,8 +114,9 @@ void sensorOpticoPro::novoRpmDesejado(uint16_t novoRPM)
         return; // Saída antecipada da função em caso de erro
     } /* */
 
-    _rpmDesejado = novoRPM;
+    _rpmMaximo = novoRPM;
 	calcularTempoMinimoEntrePulsacoes();
+    _limiarCalculado = false; // Calcular o Limiar novamente.. (função calcularLimiarTempo)
 }
 
 // Define o número de riscos no disco. Se o valor for menor ou igual a zero, utiliza o valor padrão.
@@ -198,7 +198,7 @@ void sensorOpticoPro::iniciar()
     // Isso significa que qualquer alteração feita em uma variável global dentro do `loop()` ou em outra função será mantida. 
 
 	// Reset das Variaveis - Os valores Utilizados são Valores Padrões
-	configurarParametrosSensorOptico(36, 500); //Configura novo Número de Riscos do Disco e Rpm Solicitado caso seja nescessario...
+	configurarParametrosSensorOptico(36, 1000); //Configura novo Número de Riscos do Disco e Rpm Solicitado caso seja nescessario...
 	_instanteInicial = millis(); // Serve para marcar o instante exato em que o programa começa a ser executado.
     _instanteRpmInicial = millis(); // Inicializa _instanteRpmInicial
     _velocidadeAngular = 0.0;       // Inicializa _velocidadeAngular
@@ -207,9 +207,14 @@ void sensorOpticoPro::iniciar()
 	_tempoMinimoEntrePulsacoes = 0; 
 	_anguloAtual = 0.0; 
 	_rpmAtual = 0; 
-	_rpmAtualTemporario = _rpmDesejado; 
+	_rpmAtualTemporario = _rpmMaximo; 
 	_NUM_AMOSTRAS_calcLimiar = 100;
 	_NUM_AMOSTRAS_detecMov = 100;
+	_estadoAnterior = -1; // Armazena o tempo alto anterior
+	_tempoAlto = 0;; // Armazena o tempo alto 
+	_tempoBaixo = 0;; // Armazena o tempo baixo 
+	_tempoAnterior = 0; // Declara _tempoAnterior
+	_limiarPulsacoes = 0;
 
 	///* Apenas para Depuração... */ Serial.println("Comunicação com o Sensor Óptico estabilizada...");
 }
@@ -296,7 +301,7 @@ void sensorOpticoPro::calcularTempoMinimoEntrePulsacoes() {
 
 	// Calculando o tempo em milissegundos entre cada pulso Utilizado o RPM Atual.
 	// Pode tambem ser usado o RPM desejado, porem pode não refletir a realidade se o RPM atual estiver significativamente diferente do RPM desejado, especialmente durante a fase de ajuste.
-	float tempoPorPulso = 60000.0 / (_rpmAtualTemporario * _numRiscos);
+	float tempoPorPulso = 60000.0 / (_rpmMaximo * _numRiscos);
 	//A constante 60000.0 na fórmula representa o número de milissegundos em um minuto. (Não deve ser Alterada, ela representa a conversão de minutos para milissegundos)
 	
 	// Adicionando uma margem de segurança e arredondando para cima
@@ -305,38 +310,35 @@ void sensorOpticoPro::calcularTempoMinimoEntrePulsacoes() {
 	///* Apenas para Depuração... */ Serial.println("Calculo de Tempo Minimo Finalizado...");
 }
 
+/*
+//Calcular Limiar de acordo com o RPM solicitado e o Número de Riscos do Disco Decodificador.
+unsigned long calcularLimiarTempo() {
+	calcularTempoMinimoEntrePulsacoes ();
+
+	float tempoPorRotacao = 60.0 / _tempoMinimoEntrePulsacoes;
+	float tempoPorPulso = tempoPorRotacao / _numRiscos;
+	unsigned long limiarTempo = tempoPorPulso * 1000000; // convertendo para microssegundos
+	limiarTempo *= 1.2; // adicionando 20% de margem de segurança (ajuste conforme necessário)
+	return limiarTempo;
+} /* */
+
 //Calcula o limiar ideal para detectar pulsos, utilizando um filtro de média móvel e desvio padrão.
-void sensorOpticoPro::calcularLimiarIdeal() {	
-		/*
-		Fator de ajuste: O fator de ajuste permite controlar a sensibilidade do limiar às variações nos dados. 
-						Um valor maior aumentará a robustez do sistema, mas pode reduzir a sensibilidade.
-		Coleta de dados: A quantidade de dados coletados para calcular as estatísticas influencia a precisão do resultado. 
-						Quanto mais dados, mais precisa será a estimativa do limiar.
-		Tempo de execução: A função de cálculo do limiar ideal deve ser eficiente para não afetar a performance do sistema.
-		Condições iniciais: Para a primeira execução, pode ser necessário fornecer um valor inicial para o limiar, 
-							que será ajustado posteriormente pela função.
+void sensorOpticoPro::calcularLimiarIdeal() {
+    /*
+    Esta função calcula o limiar ideal para detecção de pulsos,
+    usando a média e o desvio padrão de um conjunto de amostras
+    do valor *bruto* do sensor.
+    */
 
-		Outras abordagens:
-		Aprendizado de máquina: É possível utilizar técnicas de aprendizado de máquina para treinar um modelo que preveja o limiar ideal com base em um conjunto de dados históricos.
-		Filtros adaptativos: Utilizar filtros adaptativos para ajustar o limiar em tempo real, de acordo com as variações no sinal.
-		Benefícios de uma função dinâmica:
+    // Coletar dados *brutos* do sensor (HIGH/LOW)
+    for (int i = 0; i < _NUM_AMOSTRAS_calcLimiar; i++) {
+        _amostras_calcLimiar[i] = digitalRead(_pinoSensor); // Lê diretamente o pino
+        delayMicroseconds(50); // Adiciona um pequeno delay para espaçar as leituras (opcional)
+    }
 
-		Maior precisão: O limiar é ajustado de forma contínua para se adaptar às condições de operação.
-		Menor tempo de configuração: Não é necessário ajustar manualmente o limiar para cada aplicação.
-		Maior robustez: O sistema é mais resistente a variações nas condições ambientais e mecânicas.
-		*/
-
-    // Coletar dados de um número suficiente de pulsos
-    uint16_t dadosPulsos[_NUM_AMOSTRAS_calcLimiar];
-
-		// Coletar dados de pulsos (exemplo simplificado)
-		for (int i = 0; i < _NUM_AMOSTRAS_calcLimiar; i++) {
-			dadosPulsos[i] = lerValorPulso();
-		}
-
-    // Calcular estatísticas dos dados coletados e do desvio padrão (utilize uma biblioteca estatística ou implemente manualmente)
-    double media = calcularMedia(dadosPulsos, _NUM_AMOSTRAS_calcLimiar);
-    double desvioPadrao = calcularDesvioPadrao(dadosPulsos, media, _NUM_AMOSTRAS_calcLimiar);
+    // Calcular estatísticas dos dados coletados
+    double media = calcularMedia(_amostras_calcLimiar, _NUM_AMOSTRAS_calcLimiar);
+    double desvioPadrao = calcularDesvioPadrao(_amostras_calcLimiar, media, _NUM_AMOSTRAS_calcLimiar);
 
     // Calcular o limiar com base nas estatísticas e no fator de ajuste
     _limiarPulsacoes = static_cast<uint8_t>(media + _fatorAjusteLimiar * desvioPadrao);
@@ -346,61 +348,36 @@ void sensorOpticoPro::calcularLimiarIdeal() {
 }
 
 		/************************************** Funções Auxiliares - calcularLimiarIdeal **************************************/
-		uint16_t sensorOpticoPro::lerValorPulso() {
-		// Esta função lê o valor do pulso (tempo entre duas bordas de subida) do sensor óptico,
-		// filtra o valor utilizando uma média móvel e retorna o valor filtrado.
-			
-  			// Variáveis para armazenar o tempo e o estado anterior do pino
-			static unsigned long tempoUltimoPulso = 0; // Tempo da última borda de subida, utilizado para calcular o intervalo de tempo
-			static bool estadoAnterior = LOW; // Estado anterior do pino
 
-  			// Índice para acessar o array de amostras
-			static int indice_valorPulso = 0;//É um índice que aponta para a próxima posição livre para armazenamento no array onde é iniciado com zero
-											 // e a cada nova leitura é incrementado +1, ao atigir o numero maximo de amostras é reiniciado.
+		TemposPulso sensorOpticoPro::lerValorPulso() {
+		// Esta função lê o valor do pulso (tempo entre duas bordas de subida e descida) do sensor óptico.
+		static unsigned long tempoUltimaSubida = 0;
+		static unsigned long tempoUltimaDescida = 0;
+		static bool estadoAnterior = LOW;
 
-			uint16_t valorPulso = 0; // Valor do pulso atual, Inicializado com um valor padrão (ajuste conforme necessário)
+		unsigned long tempoAtual = micros();
+		bool estadoAtual = digitalRead(_pinoSensor);
 
-			bool estadoAtual = digitalRead(_pinoSensor);// Lê o estado atual do pino
+		TemposPulso tempos;
+		tempos.tempoSubida = 0;
+		tempos.tempoDescida = 0;
 
-			if (estadoAtual && !estadoAnterior) { // Detecta a borda de subida (transição de LOW para HIGH)
-				unsigned long tempoPulsoAtual = millis(); // Calcula o tempo entre a borda de subida atual e a anterior
-				valorPulso = tempoPulsoAtual - tempoUltimoPulso;
-				tempoUltimoPulso = tempoPulsoAtual;
-			} else if (!estadoAtual && estadoAnterior) { // Detecta borda de descida
-				// Aqui, você pode realizar alguma ação específica quando a borda de descida ocorre,
-				// como resetar um contador ou indicar o fim de um ciclo.
-				valorPulso = 0;
-			}
+		if (estadoAtual && !estadoAnterior) { // Borda de subida
+			tempos.tempoSubida = tempoAtual - tempoUltimaSubida;
+			tempoUltimaSubida = tempoAtual;
+			tempoUltimaDescida = 0; // Reseta o tempo de descida para evitar leituras incorretas
+		} else if (!estadoAtual && estadoAnterior) { // Borda de descida
+			tempos.tempoDescida = tempoAtual - tempoUltimaDescida;
+			tempoUltimaDescida = tempoAtual;
+			tempoUltimaSubida = 0; // Reseta o tempo de subida
+		}
 
-			estadoAnterior = estadoAtual; // Atualiza o estado anterior para a próxima iteração
-
-			// Filtro de média móvel 
-			_amostras_valorPulso[indice_valorPulso] = valorPulso; // Adiciona o valor do pulso ao final da janela deslizante
-			indice_valorPulso = (indice_valorPulso + 1) % _NUM_AMOSTRAS_calcLimiar; // Incrementa o índice, o uso do módulo % _NUM_AMOSTRAS_calcLimiar garante que o índice sempre fique dentro dos limites do array, criando um efeito circular.
-
-			// Calcula a média das últimas _NUM_AMOSTRAS_calcLimiar leituras válidas (maiores que zero)
-			float soma_valorPulso = 0; // Inicializa a soma das leituras válidas
-			int numAmostrasValidas = 0; // Inicializa o contador de leituras válidas
-
-			// Itera sobre todas as amostras da janela deslizante
-			for (int i = 0; i < _NUM_AMOSTRAS_calcLimiar; i++) {
-    			// Verifica se a amostra é válida (maior que zero)
-				if (_amostras_valorPulso[i] > 0) {
-        			// Acumula a amostra válida na soma
-					soma_valorPulso += _amostras_valorPulso[i];
-        			// Incrementa o contador de amostras válidas
-					numAmostrasValidas++;
-				}
-			}
-
-			// Calcula o valor médio dos pulsos válidos (maiores que zero). Se não houver pulsos válidos, retorna 0.
-			float valorPulsoFiltrado = (numAmostrasValidas > 0) ? soma_valorPulso / numAmostrasValidas : 0;  
-			
-			return valorPulsoFiltrado; // Retorna o valor do pulso filtrado
+		estadoAnterior = estadoAtual;
+		return tempos;
 
 			///* Apenas para Depuração... */ Serial.print("O valor do Pulso é: ");
 			///* Apenas para Depuração... */ Serial.println(valorPulsoFiltrado);
-		}
+	}
 
 		// Funções auxiliares para calcular média e desvio padrão
 		double sensorOpticoPro::calcularMedia(const uint16_t* dadosPulsos, int tamanho_calcMedia) {
@@ -486,24 +463,25 @@ Movimento sensorOpticoPro::detectarMovimento(bool estadoSensor) {
 // Realiza um número pré-definido de leituras do sensor para obter uma estimativa inicial do RPM e calcular o limiar ideal.
 // Aumenta gradualmente o RPM desejado para permitir que o sensor se adapte às novas condições e para evitar picos de corrente no motor.
 void sensorOpticoPro::iniciarSensorOptico() {
-	
-    Serial.println("Leitura de dados do Sensor Óptico iniciada!");
+
+    Serial.println("Função iniciar Sensor Optico iniciada!"); 
 
     // Leitura inicial para obter uma estimativa do RPM e limiar
     for (int i = 0; i < 10; i++) { //Inicia um loop que será executado 10 vezes (O objetivo deste loop é coletar dados iniciais do sensor para calcular valores como RPM e limiar.).
-        lerValorPulso(); // Realiza uma leitura do sensor e armazenar os dados.
+		Serial.println("Obtendo Estimativa!"); 
+	    lerValorPulso(); // Realiza uma leitura do sensor e armazenar os dados.
         calcularRPM(); // Calcula o RPM com base nos dados coletados.
     }
 
+	Serial.println("Estimativa Obitida!"); 
     // Ajuste gradual do RPM desejado
-	int rpmInicial = _rpmDesejado;
+	int rpmInicial = _rpmMaximo;
     for (int i = 0; i < 10; i++) { // Inicia um novo loop para ajustar gradualmente o RPM desejado.
-        int novoRpm = rpmInicial * (i + 1) / 10; // Chama a função novoRpmDesejado para atualizar o RPM desejado para um valor um pouco maior a cada iteração. O cálculo aumenta o RPM gradualmente.
+        int novoRpm = rpmInicial * (i + 1) / 10; // Chama a função novoRpmMaximo para atualizar o RPM desejado para um valor um pouco maior a cada iteração. O cálculo aumenta o RPM gradualmente.
         _rpmAtualTemporario = novoRpm;
-		delay(100); // Introduz um atraso para permitir que o motor e o sensor se estabilizem após cada ajuste de RPM. O valor do atraso pode ser ajustado conforme necessário.
-    
+		
         // Verificar se o motor atingiu a velocidade desejada
-        if (_rpmAtual >= _rpmDesejado * 0.95) {
+        if (_rpmAtual >= _rpmMaximo * 0.95) {
             break; // Sai do loop se o motor estiver próximo da velocidade desejada
         }
 	}
@@ -512,9 +490,9 @@ void sensorOpticoPro::iniciarSensorOptico() {
 
 	/**********************************
 		// Em outro ponto do seu código
-	if (_rpmAtual < _rpmDesejado) {
+	if (_rpmAtual < _rpmMaximo) {
 		// Aumentar a velocidade do motor
-	} else if (_rpmAtual > _rpmDesejado) {
+	} else if (_rpmAtual > _rpmMaximo) {
 		// Diminuir a velocidade do motor
 	} else {
 		// Manter a velocidade atual
@@ -529,181 +507,215 @@ enum Estado { //Define os possíveis estados da máquina de estados
 
 
 float sensorOpticoPro::calcularRPM() {
+    // Variável estática para armazenar o tempo do último pulso detectado em microssegundos.
+    // "static" significa que a variável mantém seu valor entre as chamadas da função.
+    static unsigned long tempoUltimoPulso = 0;
 
-  _instanteRpmInicial = millis();  // Instante em que a medição do RPM foi iniciada
+    // Obtém o tempo atual em microssegundos.
+    unsigned long tempoAtual = micros();
 
-  // Contador de pulsos
-  static int contadorPulsosIntervalo = 0; // Inicializa um contador para contabilizar o número de pulsos detectados em um intervalo de tempo específico.
+    // Variável para armazenar o tempo decorrido entre dois pulsos consecutivos.
+    unsigned long tempoDecorrido = 0;
 
-  // Variáveis para armazenar o tempo e a quantidade de interrupções
-  static unsigned long tempoAnterior = 0; // Armazena o tempo da última verificação, utilizado para calcular o intervalo de tempo
+    // Variável estática para armazenar o valor atual do RPM.
+    // "static" garante que o valor seja mantido entre as chamadas da função.
+    static float rpmAtual = 0;
 
-  // Chamar a função detectarMovimento para obter os dados de movimento
-  Movimento movimento = detectarMovimento(digitalRead(_pinoSensor));
+    // Lê o estado atual do pino do sensor (HIGH ou LOW).
+    bool estadoAtual_Sensor = digitalRead(_pinoSensor);
 
-  // Inicializa no estado de espera por pulso. Isso significa que inicialmente estamos esperando uma transição no pino de Sinal.
-  Estado estadoAtual = ESPERANDO_PULSO;
+    // Variável estática para armazenar o estado anterior do pino do sensor.
+    // Usada para detectar a transição de LOW para HIGH (subida do pulso).
+    static bool estadoAnterior_Sensor = LOW;
 
-  // Lê o estado atual do pino e armazena em uma variável booleana
-  bool estadoAtual_Sensor = digitalRead(_pinoSensor);
+    // Verifica se houve uma transição de LOW para HIGH no sinal do sensor.
+    // Isso indica a detecção de um novo pulso.
+    if (estadoAtual_Sensor == HIGH && estadoAnterior_Sensor == LOW) {
+        // Calcula o tempo decorrido desde o último pulso.
+        tempoDecorrido = tempoAtual - tempoUltimoPulso;
 
-  //Variavel Não utilizada...
-  static volatile int contadorRiscos = 0; // Contador utilizado para contar o número total de pulsos (riscos) detectados.    
+        // Atualiza o tempo do último pulso para o tempo atual.
+        tempoUltimoPulso = tempoAtual;
 
-	//Inicia uma estrutura de decisão que avalia o estado atual da máquina e executa o código correspondente a cada caso.
-	switch (estadoAtual) {
-		
-		/*
-		** Funcionamento do Sensor:**
-		* O sensor detecta a presença de objetos com base na reflexão da luz.
-		* A sensibilidade do sensor pode variar dependendo da cor e da superfície do objeto.
-		* Para este sistema, o sensor está configurado para detectar apenas a parte branca do disco.
-		* **Estados do Sensor:**
-			* LOW: Objeto não detectado (parte preta do disco).
-			* HIGH: Objeto detectado (parte branca do disco).
+        // Verifica se o tempo decorrido é maior que zero para evitar divisão por zero.
+        if (tempoDecorrido > 0) {
+            // Imprime o tempo decorrido em microssegundos para fins de debug.
+            Serial.print("Tempo Decorrido (micros): ");
+            Serial.println(tempoDecorrido);
 
-		**Configuração do Disco:**
-		* O disco deve ter partes brancas e pretas alternadas.
-		* A largura das partes branca e preta deve ser igual para garantir pulsos de duração constante.
-		* Ajuste a distância do sensor para que apenas a parte branca seja detectada.
+            // Cálculo do RPM com prevenção de overflow e melhor precisão:
+            // Usamos ponto flutuante desde o início para evitar perdas de precisão
+            // e convertemos _numRiscos para float para evitar overflow na multiplicação
 
-		**Calibração:**
-		* Determine o número exato de pulsos por rotação do disco (Quantidade de Partes Brancas (_numRiscos)).
-		* Ajuste os parâmetros do cálculo do RPM de acordo com a calibração.
-		*/
-		
-    // Detecta a borda de subida em ESPERANDO_PULSO e borda de descida em PULSO_DETECTADO (indicando um pulso completo)
-    case ESPERANDO_PULSO: // Se o estado atual é ESPERANDO_PULSO e
-        if (estadoAtual_Sensor == HIGH) { // o pino ESPERANDO_PULSO está alto e o pino PULSO_DETECTADO está baixo.
-            contadorPulsosIntervalo++; // Incrementa o contador de pulsos.
-            estadoAtual = PULSO_DETECTADO; // Muda para o estado de espera por pulso em PULSO_DETECTADO.
-			//Serial.print("Contador de intervalo de pulso: ");
-			//Serial.println(contadorPulsosIntervalo);
+            // Converte o tempo decorrido de microssegundos para segundos.
+            float tempoDecorridoSegundos = (float)tempoDecorrido / 1000000.0;
+
+            // Calcula o RPM:
+            // 60 segundos/minuto / (número de riscos * tempo entre pulsos em segundos)
+            // A conversão de _numRiscos para float garante que a multiplicação seja feita em ponto flutuante,
+            // evitando possível overflow se _numRiscos e tempoDecorridoSegundos fossem inteiros.
+            rpmAtual = 60.0 / ((float)_numRiscos * tempoDecorridoSegundos);
+
+            // Imprime o valor do RPM calculado para fins de debug.
+            Serial.print("RPM: ");
+            Serial.println(rpmAtual);
         }
-        break;
-    // Detecta a borda de descida em ESPERANDO_PULSO e borda de subida em PULSO_DETECTADO (indicando um pulso completo)
-    case PULSO_DETECTADO: // Se o estado atual é PULSO_DETECTADO e
-        if (estadoAtual_Sensor == LOW) { // o pino ESPERANDO_PULSO está baixo e o pino PULSO_DETECTADO está alto.
-            estadoAtual = ESPERANDO_PULSO; // Volta ao estado inicial.
-        }
-        break;
+    }
+
+    // Atualiza o estado anterior do sensor para o estado atual para a próxima iteração.
+    estadoAnterior_Sensor = estadoAtual_Sensor;
+
+    // Retorna o valor atual do RPM calculado.
+    return rpmAtual;
+}
+
+
+
+// Declaração da função para ajustar a distancia ideal entre Sensor Óptico e Disco Decodificador.
+void sensorOpticoPro::ajustarDistanciaSensorOptico() {
+	_estadoAtual = digitalRead(_pinoSensor); // Lê o estado atual do sensor.
+
+	// Verifica se o limiar ideal já foi calculado. Se não, calcula e imprime.
+	if (!_limiarCalculado) {
+		// Chama a função para Calcular o Limiar Ideal.
+		calcularLimiarIdeal(); 
+        // Imprime o valor do limiar calculado no Serial Monitor.
+		Serial.print(F("Limiar Calculado: "));
+		Serial.println(_limiarPulsacoes);
+		// Marca o limiar como calculado para evitar recalcular a cada chamada da função.
+		_limiarCalculado = true;
 	}
 
-    // Verifica se o intervalo de tempo expirou
-    unsigned long tempoAtual = millis(); // Tempo atual em milissegundos, desde o inicio da função até aqui. 
-    if (tempoAtual - tempoAnterior >= _tempoMinimoEntrePulsacoes) { //Verifica se o tempo decorrido desde a última verificação é maior ou igual ao tempo mínimo configurado entre pulsos.
-		// Se a condição for verdadeira, inicia o cálculo do RPM baseado no número de pulsos detectados no intervalo e no número total de riscos. 
-        float rpm = (float)contadorPulsosIntervalo * 60 / _numRiscos; //O número de pulsos por minuto é calculado e dividido pelo número de riscos por rotação para obter o RPM.
-        
-    	if (contadorPulsosIntervalo >= _limiarPulsacoes) { //Verifica se o número de pulsos no intervalo excede um limiar pré-definido.
-            contadorRiscos++; //Incrementa um contador de riscos (propósito não totalmente claro).
-        }
+	const unsigned long tempoLimite = 1000000; // Define o tempo limite para o ajuste (1 segundos - corrigido para melhor performance).
+	static unsigned long tempoInicioAjuste = 0; // Variáveis estáticas para controlar o tempo e o estado do ajuste.
+	static bool ajusteIniciado = false;
 
-        contadorPulsosIntervalo = 0; //Reinicia o contador de pulsos para a próxima medição.
-        tempoAnterior = tempoAtual; //Atualiza o tempo da última verificação para a próxima iteração.
-	
-		/******************************************************************************************** 
-		Filtro de média móvel 
-		Objetivo: Suaviza o valor do RPM, reduzindo o impacto de ruídos e variações aleatórias.
-		Funcionamento: Armazena as últimas N amostras de RPM em um vetor e calcula a média dessas amostras para obter um valor mais representativo.
-		********************************************************************************************/
-		// Vetor para armazenar as últimas 10 N amostras
-		static const int NUM_AMOSTRAS_rpm = 10;
-		//static float amostras_rpm[NUM_AMOSTRAS_rpm];
-		static float amostras_rpm[NUM_AMOSTRAS_rpm] = {0}; // Inicializa o vetor com zeros;
-		static int indice_rpm = 0;
+    // Define o número de amostras para calcular a média dos tempos alto e baixo.
+	const int NUM_AMOSTRAS = 100; 
+	// Variáveis estáticas para armazenar a soma dos tempos alto e baixo e a contagem de amostras.
+	static unsigned long somaTemposAlto = 0; // Soma dos tempos em que o sensor está em nível HIGH.
+	static unsigned long somaTemposBaixo = 0; // Soma dos tempos em que o sensor está em nível LOW.
+	static int contagem = 0;              // Contagem total de amostras coletadas.
+	// Índice e buffer para armazenar as recomendações de ajuste (0: Afasta, 1: Aproxima).
+	static int indiceBuffer = 0;
+	static int bufferAjuste[NUM_AMOSTRAS];
 
-		// Adiciona a nova amostra ao vetor
-		amostras_rpm[indice_rpm] = rpm; // Adiciona a nova medição ao vetor
-		indice_rpm = (indice_rpm + 1) % NUM_AMOSTRAS_rpm; // Incrementa o índice circularmente
-
-		// Calcula a média das últimas N amostras (filtro de média móvel)
-		float soma = 0;
-		for (int i = 0; i < NUM_AMOSTRAS_rpm; i++) {
-		soma += amostras_rpm[i];
+	// Se o ajuste ainda não foi iniciado, inicializa as variáveis e o buffer.
+	if (!ajusteIniciado) {
+		// Registra o tempo atual como o tempo de início do ajuste.
+		tempoInicioAjuste = micros();
+		// Marca o ajuste como iniciado.
+		ajusteIniciado = true;
+		// Reinicializa o índice do buffer.
+		indiceBuffer = 0;
+		// Reinicializa as somas dos tempos.
+		somaTemposAlto = 0;
+		somaTemposBaixo = 0;
+		// Reinicializa a contagem de amostras.
+		contagem = 0;
+		// Inicializa o buffer de ajuste com -1 para indicar que não há dados válidos ainda.
+		for (int i = 0; i < NUM_AMOSTRAS; i++) {
+		bufferAjuste[i] = -1;
 		}
-		float rpm_filtrado = soma / NUM_AMOSTRAS_rpm;
+	}
 
-		// Calcula a velocidade angular em radianos por segundo com o valor filtrado
-		float velocidadeAngular = rpm_filtrado * 2 * PI / 60;
-		
-		// Houve movimento, atualizar ângulo e última leitura
-		_anguloAtual += velocidadeAngular * (tempoAtual - _instanteRpmInicial) / 1000.0;
-		_anguloAtual = fmod(_anguloAtual, 360);
+	// Verifica se o tempo limite para o ajuste foi atingido (timeout de 1 segundo).
+	if (micros() - tempoInicioAjuste >= tempoLimite) {
+		// Se nenhum tempo alto ou baixo foi medido (sensor sempre no mesmo estado), exibe a mensagem de distância severa.
+		if (_tempoAlto == 0 && _tempoBaixo == 0) {
+		Serial.println(distanciaSevera); 
+		} else if ((long)_tempoAlto > (long)_tempoBaixo) { 
+			// Se o tempo HIGH for maior que o tempo LOW, o sensor está muito próximo.
+			distanciaSevera = "Sensor Severamente Próximo... Afaste!";
+		} else {
+			// Se o tempo LOW for maior que o tempo HIGH, o sensor está muito longe.
+			distanciaSevera = "Sensor Severamente Longe... Aproxime!";
+		}
+    	// Reseta as variáveis para a próxima vez que a função for chamada (reinicia o processo de ajuste).
+		ajusteIniciado = false; //Reseta o ajuste para a proxima vez que for chamado
+		_tempoAnterior = -1;
+		_tempoAlto = 0;
+		_tempoBaixo = 0;
+		return; // Sai da função após o timeout.
+	}
+
+	// Verifica se houve uma mudança no estado do sensor (transição HIGH para LOW ou LOW para HIGH).
+	if (_estadoAtual != _estadoAnterior) {
+		// Obtém o tempo atual em microssegundos.
+		unsigned long tempoAtual = micros();
+		unsigned long tempoDecorrido;
+
+    	// Se houver um tempo anterior registrado (não é a primeira leitura).
+		if (_tempoAnterior != -1) {
+			// Calcula o tempo decorrido desde a última mudança de estado.
+			tempoDecorrido = tempoAtual - _tempoAnterior;
+
+			// Reinicializa os tempos alto e baixo para a nova medição.
+			_tempoAlto = 0;
+			_tempoBaixo = 0;
+
+		// Determina se o tempo decorrido é um tempo alto (sensor HIGH) ou baixo (sensor LOW).
+		if (_estadoAnterior == 1) {
 			
-
-		// Calcular RPM, filtrar e atualizar ângulo apenas se houve movimento
-		if (movimento.movimentoDetectado) { // Verifica se ouve movimento		
-			if (rpm_filtrado > 0) {
-				Serial.print("RPM: ");
-				Serial.print(rpm_filtrado);
-				//Serial.print(" Ângulo: ");
-				//Serial.println(_anguloAtual);
-				//Serial.println(" graus");
-				}
+			_tempoBaixo = tempoDecorrido;
+		} else {
+			_tempoAlto = tempoDecorrido;
 		}
 
-        _rpmAtual = rpm_filtrado; // Atualiza o RPM atual com o valor calculado
+		// Acumula os tempos alto e baixo e incrementa a contagem de amostras.
+		somaTemposAlto += _tempoAlto;
+		somaTemposBaixo += _tempoBaixo;
+		contagem++;
 
-		return rpm_filtrado;
+		// Armazena a recomendação de ajuste no buffer: 0 para Afastar, 1 para Aproximar.
+		bufferAjuste[indiceBuffer] = (_tempoAlto < _tempoBaixo) ? 0 : 1; // 0: Afasta, 1: Aproxima
+		// Atualiza o índice do buffer usando o operador módulo (%) para circular entre as posições do buffer.
+		indiceBuffer = (indiceBuffer + 1) % NUM_AMOSTRAS;
 
-		}
-}
+		// Se o buffer estiver cheio (coletou NUM_AMOSTRAS amostras), calcula as médias e exibe a recomendação.
+		if (indiceBuffer == 0 && ajusteIniciado) {
+			unsigned long mediaTempoAlto = 0;
+			unsigned long mediaTempoBaixo = 0;
+			long mediaDiferenca = 0;
 
-//Utilizado para ajustar a distancia ideal entre Sensor Óptico e Disco Decodificador.
-void sensorOpticoPro::ajustarDistanciaSensorOptico() {
-    Serial.println("Ajuste da distancia entre Sensor Óptico e disco decodificador iniciada!");
-  /*
-    // Medir o tempo alto
-    unsigned long tempoInicio = millis();
-    while (digitalRead(_pinoSensor) == LOW) {
-        // Esperar o sinal ficar alto
+			// Calcula as médias dos tempos alto e baixo.
+			if (contagem > 0) {
+				mediaTempoAlto = somaTemposAlto / contagem;
+				mediaTempoBaixo = somaTemposBaixo / contagem;
+				mediaDiferenca = (long)mediaTempoAlto - (long)mediaTempoBaixo;
+			}
+
+			// Define a tolerância para considerar a distância como aceitável (diferença entre os tempos dentro dessa tolerância).
+			const long TOLERANCIA_PERFEITA = 1000;
+
+			// Exibe a recomendação com base na diferença entre os tempos médios.
+			if (abs(mediaDiferenca) <= TOLERANCIA_PERFEITA) {
+				Serial.print(F("Recomendação: Distância aceitável! "));
+			} else if (mediaTempoAlto < mediaTempoBaixo) {
+				Serial.print(F("Recomendação: Afaste! "));
+			} else {
+				Serial.print(F("Recomendação: Aproxime! "));
+			}
+
+			// Imprime os tempos médios e a diferença no Serial Monitor para depuração e acompanhamento.
+			Serial.print(F("Tempo Alto Médio: "));
+			Serial.print(mediaTempoAlto);
+			Serial.print(F(" us, "));
+			Serial.print(F("Tempo Baixo Médio: "));
+			Serial.print(mediaTempoBaixo);
+			Serial.print(F(" us, "));
+			Serial.print(F("Diferença Média: "));
+			Serial.print(mediaDiferenca);
+			Serial.println(F(" us"));
+
+			// Reseta as variáveis de soma e contagem para a próxima medição/ajuste.
+			somaTemposAlto = 0;
+			somaTemposBaixo = 0;
+			contagem = 0;
+      }
     }
-    unsigned long tempoAlto = millis() - tempoInicio;
-
-    // Medir o tempo baixo
-    tempoInicio = millis();
-    while (digitalRead(_pinoSensor) == HIGH) {
-        // Esperar o sinal ficar baixo
-    }
-    unsigned long tempoBaixo = millis() - tempoInicio;
-
-    // Calcular a diferença e realizar as comparações
-    long diferenca = tempoAlto - tempoBaixo;
-
-  // Definição das faixas de tolerância (ajuste conforme necessário)
-  const long TOLERANCIA_MAXIMA = 100; // Ajuste este valor de acordo com a sua aplicação
-  const long TOLERANCIA_MEDIA = 60; // Ajuste este valor de acordo com a sua aplicação
-  const long TOLERANCIA_MINIMA = 20; // Ajuste este valor de acordo com a sua aplicação
-  const long TOLERANCIA_Perfeita = 5; // Ajuste este valor de acordo com a sua aplicação
-
-// Verificação das condições e impressão das mensagens
-if (tempoAlto == 0 && tempoBaixo == 0) {
-    Serial.println("Sensor Severamente Longe do Disco; Aproxime o Sensor!");
-} else if (tempoAlto > tempoBaixo) {
-    if (abs(diferenca) >= TOLERANCIA_MAXIMA) {
-        Serial.println("Sensor Severamente Próximo ao Disco; Afaste o Sensor!");
-    } else if (abs(diferenca) >= TOLERANCIA_MEDIA && abs(diferenca) < TOLERANCIA_MAXIMA) {
-        Serial.println("Sensor Muito Próximo ao Disco; Afaste o Sensor!");
-    } else if (abs(diferenca) >= TOLERANCIA_MINIMA && abs(diferenca) < TOLERANCIA_MEDIA) {
-        Serial.println("Sensor Próximo ao Disco; Afaste um pouco o Sensor!");
-    } else { // Se nenhuma das condições anteriores for verdadeira
-        Serial.print("Distância Quase Perfeita (mais próximo)! Tolerância: ");
-        Serial.print(abs(diferenca));
-        Serial.println("%");
-    }
-} else if (tempoAlto < tempoBaixo) {
-    if (abs(diferenca) >= TOLERANCIA_MAXIMA) {
-        Serial.println("Sensor Severamente Longe do Disco; Aproxime o Sensor!");
-    } else if (abs(diferenca) >= TOLERANCIA_MEDIA) {
-        Serial.println("Sensor Muito Longe do Disco; Aproxime o Sensor!");
-    } else {
-        Serial.print("Distância Quase Perfeita (mais longe)! Tolerância: ");
-        Serial.print(abs(diferenca));
-        Serial.println("%");
-    }
-} else {
-    Serial.println("Distância Perfeita entre o Sensor e o Disco!");
-}
-/* */
+	// Atualiza o tempo e o estado anterior para a próxima iteração.
+    _tempoAnterior = tempoAtual;
+    _estadoAnterior = _estadoAtual;
+  }
 }
