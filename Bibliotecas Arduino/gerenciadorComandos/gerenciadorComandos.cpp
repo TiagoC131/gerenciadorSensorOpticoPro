@@ -496,7 +496,7 @@ ComandoInfo tabelaComandos[] = { // Tabela de despacho que associa nomes de coma
   {nullptr, nullptr} // Marcador de fim da tabela (obrigatório)
 };
 
-Comando gerenciadorComandos::analisarComando(String comandoRecebido) {
+Comando gerenciadorComando::analisarComando(String comandoRecebido) {
   /*
    * Objetivo: Esta função analisa uma string de comando recebida, separando o nome do comando e seus valores numéricos.
    * Parâmetro: comandoRecebido - A string contendo o comando e seus valores. Ex: "piscarLed 10 200 300"
