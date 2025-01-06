@@ -52,7 +52,7 @@ bool lerRPMSensor_Ativo = false;                      // Flag que indica se o mo
  * Definir Construtor
  ******************************************************************************/
 
-gerenciadorComando::gerenciadorComando(uint8_t pinoLigarMotor, uint8_t pinoSentidoGiro) 
+gerenciadorComandos::gerenciadorComandos(uint8_t pinoLigarMotor, uint8_t pinoSentidoGiro) 
 	: _pinoLigarMotor(pinoLigarMotor), _pinoSentidoGiro(pinoSentidoGiro)
 {
     // Configura os pinos do inversor como saída
@@ -64,7 +64,7 @@ gerenciadorComando::gerenciadorComando(uint8_t pinoLigarMotor, uint8_t pinoSenti
  * Definir API de Usúario
  ******************************************************************************/
 
-void gerenciadorComando::iniciar()
+void gerenciadorComandos::iniciar()
 {
  	// **Inicialização das variáveis:**
     // Nesta função, as variáveis globais são inicializadas com seus valores padrão.
@@ -94,7 +94,7 @@ void tratarStatus(Comando comando, sensorOpticoPro &sensor) { // Verifica o Stat
 }
 
 // Funções de tratamento dos comandos
-void gerenciadorComandos::tratarLigarMotor(Comando comando, sensorOpticoPro &sensor) { // Liga o Motor
+void tratarLigarMotor(Comando comando, sensorOpticoPro &sensor) { // Liga o Motor
 
   //As partes comentadas foram removidas pois serão implementadas no sistema web para economizar memoria da placa.
   /*
@@ -111,7 +111,7 @@ void gerenciadorComandos::tratarLigarMotor(Comando comando, sensorOpticoPro &sen
 }
 
 // Funções de tratamento dos comandos
-void gerenciadorComandos::tratarDesligarMotor(Comando comando, sensorOpticoPro &sensor) { //Desliga o Motor
+void tratarDesligarMotor(Comando comando, sensorOpticoPro &sensor) { //Desliga o Motor
 
   //As partes comentadas foram removidas pois serão implementadas no sistema web para economizar memoria da placa.
   /*
@@ -127,7 +127,7 @@ void gerenciadorComandos::tratarDesligarMotor(Comando comando, sensorOpticoPro &
 }
 
 // Funções de tratamento dos comandos
-void gerenciadorComandos::tratarSentidoGiro(Comando comando, sensorOpticoPro &sensor) { // Verifica o Status da Conexão Serial
+void tratarSentidoGiro(Comando comando, sensorOpticoPro &sensor) { // Verifica o Status da Conexão Serial
 
   //As partes comentadas foram removidas pois serão implementadas no sistema web para economizar memoria da placa.
   /*
@@ -496,7 +496,7 @@ ComandoInfo tabelaComandos[] = { // Tabela de despacho que associa nomes de coma
   {nullptr, nullptr} // Marcador de fim da tabela (obrigatório)
 };
 
-Comando gerenciadorComando::analisarComando(String comandoRecebido) {
+Comando gerenciadorComandos::analisarComando(String comandoRecebido) {
   /*
    * Objetivo: Esta função analisa uma string de comando recebida, separando o nome do comando e seus valores numéricos.
    * Parâmetro: comandoRecebido - A string contendo o comando e seus valores. Ex: "piscarLed 10 200 300"
@@ -547,7 +547,7 @@ Comando gerenciadorComando::analisarComando(String comandoRecebido) {
   return comando; // Retorna o struct Comando preenchido com o nome do comando e seus valores.
 }
 
-void gerenciadorComando::processarComando(Comando comando, sensorOpticoPro &sensor) {
+void gerenciadorComandos::processarComando(Comando comando, sensorOpticoPro &sensor) {
   // Esta função recebe um struct Comando (que contém o nome do comando e seus valores) e procura na tabela de comandos a função que deve ser executada para esse comando.
 
   for (int i = 0; tabelaComandos[i].nome != nullptr; i++) {  // Loop que percorre a tabela de comandos 'tabelaComandos'.
