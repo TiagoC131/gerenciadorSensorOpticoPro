@@ -20,7 +20,7 @@ const int avancaPin = 6;
 
 //Intanciar Classes
 sensorOpticoPro sensorOptico(sensorOpticoPin); // Assumindo os pinos de comunicação do Sensor Optico
-gerenciadorComando gerenciador (ligaDesligaPin, sentidoGiroPin); // Assumindo os pinos de comunicação do Motor
+gerenciadorComandos gerenciador (ligaDesligaPin, sentidoGiroPin); // Assumindo os pinos de comunicação do Motor
 
 void setup() {  
   //Comunicação Serial com o Sistema
