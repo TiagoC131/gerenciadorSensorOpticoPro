@@ -45,6 +45,11 @@
     float valorFiltrado; // Armazena o valor filtrado do sinal do sensor
   };
 
+  struct TemposPulso {
+  unsigned long tempoSubida;
+  unsigned long tempoDescida;
+  };
+
 class sensorOpticoPro
 {
   private:
@@ -55,26 +60,28 @@ class sensorOpticoPro
   unsigned long _instanteInicial; //Instante exato em que o programa começa a ser executado (usado para calcular tempos decorridos)..
   unsigned long _instanteRpmInicial; // Instante da última medição de RPM, recebe o valor a cada inicio de função (usado para calcular a velocidade angular).
   //Parametros do Sensor
-  uint16_t _rpmDesejado; // Valor de RPM solicitado recebido via serial do sistema da Balanceadora (configurado externamente).
+  uint16_t _rpmMaximo; // Valor de RPM solicitado recebido via serial do sistema da Balanceadora (configurado externamente).
   float _rpmAtual; // RPM atual calculado pelo sensor
-  float _rpmAtualTemporario = _rpmDesejado; // Valor intermediário para ajuste gradual do RPM (evita mudanças bruscas).
+  float _rpmAtualTemporario = _rpmMaximo; // Valor intermediário para ajuste gradual do RPM (evita mudanças bruscas).
   uint8_t _numRiscos; // Número total de Pulsos (riscos) no disco do sensor óptico. Utilizado no cálculo do RPM.
 
-  //Calcular Velocidade Angular em Radianos por segundo
+  //Calcular Velocidade Angular em Radianos por segundo e Posição Angular
   float _velocidadeAngular = 0.0; // Inicializa com zero radianos por segundo e armazenar as velocidades angulares calculadas.
+    unsigned long _tempoAnteriorAngulo = 0;
+    float _anguloAtual = 0.0; // Ângulo de rotação atual em graus.
   
   /********************************************************** Calcular RPM **********************************************************/
     // Limiar e Tempo
-    uint8_t _limiarPulsacoes; // Número mínimo de Pulsos necessários para considerar uma detecção válida. Um valor mais alto aumenta a confiabilidade da detecção, mas pode atrasar a resposta.
+    /*unsigned long*/uint8_t _limiarPulsacoes = 0; // Armazena o limiar calculado para detecção de pulsações.
+                                        // Usado para evitar leituras espúrias.
+                                        // Um valor mais alto aumenta a confiabilidade da detecção, mas pode atrasar a resposta.
     float _fatorAjusteLimiar = 1.0; // Ajuste do Limite de Pulsos - Aumenta a sensibilidade do sensor quando maior que 1.0 e diminui quando menor que 1.0. Utilizado para compensar variações na iluminação ambiente.
       uint16_t _NUM_AMOSTRAS_calcLimiar = 100; // Número de amostras para cálculo do limiar ideal para o Calculo do RPM
-      int* _amostras_valorPulso = new int[_NUM_AMOSTRAS_calcLimiar]; //É um array que armazena as últimas amostras das leituras do sensor (_NUM_AMOSTRAS_calcLimiar garantira o espaço nescessario na memoria).
+      int* _amostras_calcLimiar = new int[_NUM_AMOSTRAS_calcLimiar]; //É um array que armazena as últimas amostras das leituras do sensor (_NUM_AMOSTRAS_calcLimiar garantira o espaço nescessario na memoria).
     uint16_t _NUM_AMOSTRAS_detecMov = 100; // Número de amostras do Filtro Movel para Detecção de Movimento
       int* _amostras_detecMov = new int[_NUM_AMOSTRAS_detecMov]; //É um array que armazena as últimas amostras das leituras do sensor (_NUM_AMOSTRAS_detecMov garantira o espaço nescessario na memoria).
     uint16_t _tempoMinimoEntrePulsacoes; // Define o intervalo de tempo mínimo (em milissegundos) entre duas detecções consecutivas de pulsos. Serve para filtrar ruídos e evitar a contagem dupla de pulsos.
     
-    //Posição Angular
-    float _anguloAtual = 0.0; // Ângulo de rotação atual em graus.
     
 
       /**************************************************************************************************************************************
@@ -96,13 +103,41 @@ class sensorOpticoPro
       * Esse valor é fundamental para o cálculo da rotação por minuto (RPM), pois é utilizado como divisor na fórmula de cálculo do RPM. 
       * A precisão do cálculo do RPM depende diretamente da precisão desse valor.
       ***************************************************************************************************************************************/
+  
+  //Estado do Sensor Óptico
+int _estadoAtual;                 // Armazena o estado atual do sensor (0 ou 1).
+int _estadoAnterior = -1;         // Armazena o estado anterior do sensor.
+                                  // Inicializar com -1 é crucial para o correto
+                                  // funcionamento da lógica de medição de tempo.
+                                  // Na primeira execução da função ajustarDistanciaSensorOptico(),
+                                  // _estadoAnterior não possui um valor válido (0 ou 1). Se fosse
+                                  // inicializado com 0 ou 1, a primeira leitura sempre resultaria
+                                  // em uma "mudança de estado" falsa, levando a um cálculo
+                                  // incorreto do primeiro tempo medido. O valor -1 garante que
+                                  // a primeira comparação _estadoAtual != _estadoAnterior seja
+                                  // sempre verdadeira, mas impede o calculo do tempo decorrido
+                                  // na primeira execução.
+unsigned long _tempoAlto = 0; // Armazena o tempo decorrido no estado ALTO na iteração ANTERIOR.
+                                  // Usado para calcular a diferença entre os tempos alto e baixo.
+                                  // Inicializado com 0 para evitar valores incorretos na primeira iteração.
+unsigned long _tempoBaixo = 0; // Armazena o tempo decorrido no estado BAIXO na iteração ANTERIOR.
+                                  // Usado para calcular a diferença entre os tempos alto e baixo.
+                                  // Inicializado com 0 para evitar valores incorretos na primeira iteração.
+unsigned long _tempoAnterior = 0; // Armazena o valor de micros() da última transição de estado.
+                                  // Usado para calcular o tempo decorrido em cada estado.
+                                  // Inicializado com 0 para evitar erros de calculo na primeira execução.
+String distanciaSevera = "";      // Armazena a distancia severa do sensor (se esta muito longe ou muito perto);
+
+//Calcular Limiar de acordo com RPM e Número de Riscos
+bool _limiarCalculado = false;      // Indica se o limiar de pulsações já foi calculado.
+unsigned long _limiarCalculadoValor;
 
   //Status do Sensor
   uint8_t lerDadosDeRegistro(uint8_t registro); // Lê dados de um registrador específico do sensor (para verificar status, por exemplo).
 
   //Calcular Tempo Minimo Entre Pulsos e Limiar Ideal atraves di RPM
   void calcularLimiarIdeal(); // Calcula e ajusta o limiar de pulsos dinamicamente.
-    uint16_t lerValorPulso(); // Lê o valor bruto do pulso do sensor.
+    TemposPulso lerValorPulso(); // Declaração corrigida
     double calcularMedia(const uint16_t* dadosPulsos, int tamanho); // Calcula a média de um conjunto de amostras.
     double calcularDesvioPadrao(const uint16_t* dadosPulsos, double media, int tamanho); // Calcula o desvio padrão de um conjunto de amostras.
     double calcularPotencia(double base, int expoente); // Calcula a potencia de um numero
@@ -125,7 +160,7 @@ class sensorOpticoPro
       void configurarParametrosSensorOptico(uint8_t config_numRiscos, uint16_t config_rpmInicial); // Inicializa o sensor com o RPM e o número de riscos desejados.
 
       // Configura Novos Parametros escolhidos pelo Usúario
-      void novoRpmDesejado(uint16_t novoRPM); // Configura um novo valor para o RPM desejado.
+      void novoRpmMaximo(uint16_t novoRPM); // Configura um novo valor para o RPM desejado.
       void novoNumRiscos(uint8_t novoNumRiscos); // Configura um novo número de riscos no disco. Como é um valor de 8 bits, o máximo de Riscos é 255.
       void novoFatorAjusteLimiar(float novoFator); // Configura um novo fator de ajuste para o limiar de pulsos. Usado para calibrar o sensor em diferentes condições de iluminação ou ruído.
       void novoNumAmostrasLimiar(uint16_t novoNumAmostrasLimiar); // Configura o número de amostras usadas para o cálculo do limiar.
@@ -139,7 +174,7 @@ class sensorOpticoPro
     void ajustarDistanciaSensorOptico(); // Função para auxiliar no ajuste físico da distância entre o sensor e o disco. Envolve leituras e comparações para indicar a distância ideal.
 
     // Calcular a velocidade angular
-    float calcularVelocidadeAngular(); // Calcula a velocidade angular com base nas variações do ângulo. 
+    void  calcularVelocidadeAngular(float rpmAtual); // Calcula a velocidade angular com base nas variações do ângulo. 
     // ---------- Lógica de cálculo ainda a ser implementada. ----------
 
 };
