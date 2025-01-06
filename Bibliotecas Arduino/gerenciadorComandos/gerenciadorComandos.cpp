@@ -79,7 +79,7 @@ void gerenciadorComando::iniciar()
 }
 
 // Funções de tratamento dos comandos
-void tratarStatus(Comando comando, sensorOpticoPro &sensor) { // Verifica o Status da Conexão Serial
+void tratarStatus(Comando comando) { // Verifica o Status da Conexão Serial
 
   //As partes comentadas foram removidas pois serão implementadas no sistema web para economizar memoria da placa.
   /*
@@ -94,7 +94,7 @@ void tratarStatus(Comando comando, sensorOpticoPro &sensor) { // Verifica o Stat
 }
 
 // Funções de tratamento dos comandos
-void tratarLigarMotor(Comando comando, sensorOpticoPro &sensor) { // Liga o Motor
+void tratarLigarMotor(Comando comando) { // Liga o Motor
 
   //As partes comentadas foram removidas pois serão implementadas no sistema web para economizar memoria da placa.
   /*
@@ -111,7 +111,7 @@ void tratarLigarMotor(Comando comando, sensorOpticoPro &sensor) { // Liga o Moto
 }
 
 // Funções de tratamento dos comandos
-void tratarDesligarMotor(Comando comando, sensorOpticoPro &sensor) { //Desliga o Motor
+void tratarDesligarMotor(Comando comando) { //Desliga o Motor
 
   //As partes comentadas foram removidas pois serão implementadas no sistema web para economizar memoria da placa.
   /*
@@ -127,7 +127,7 @@ void tratarDesligarMotor(Comando comando, sensorOpticoPro &sensor) { //Desliga o
 }
 
 // Funções de tratamento dos comandos
-void tratarSentidoGiro(Comando comando, sensorOpticoPro &sensor) { // Verifica o Status da Conexão Serial
+void tratarSentidoGiro(Comando comando) { // Verifica o Status da Conexão Serial
 
   //As partes comentadas foram removidas pois serão implementadas no sistema web para economizar memoria da placa.
   /*
