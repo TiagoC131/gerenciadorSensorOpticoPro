@@ -42,7 +42,6 @@
 #ifndef gerenciadorComandos_h // Define um guarda de inclusão para evitar inclusões múltiplas do cabeçalho. Se 'gerenciadorComandos_h' não estiver definido, ele será definido agora.
 #define gerenciadorComandos_h // Define o identificador 'gerenciadorComandos_h'.
 
-
 // Forward declaration da biblioteca
 class sensorOpticoPro; // Declaração prévia (forward declaration) da classe sensorOpticoPro. Isso diz ao compilador que essa classe existe, mesmo que sua definição completa esteja em outro lugar (sensorOpticoPro.h). Isso é necessário porque ComandoInfo usa sensorOpticoPro&
 
@@ -94,15 +93,37 @@ struct ComandoInfo { // Define uma estrutura chamada 'ComandoInfo' para associar
 // Declara a tabela de comandos. Definida no arquivo .cpp.
 // 'extern' indica que a definição real está em outro arquivo. Essencial para evitar erros de múltiplas definições.
 extern ComandoInfo tabelaComandos[]; //O uso de extern é crucial para evitar erros de múltiplas definições na Linkagem
+extern bool ajustarDistanciaSensor_Ativo;  // Indica se o modo de ajuste do Sensor Óptico está ativo.
+extern bool lerRPMSensor_Ativo;            // Indica se o modo de leitura do RPM do Sensor Óptico está ativo.
 
 class gerenciadorComando {
 private:
-    //int numComandos = 0; // Contador de comandos adicionados
+    //int numComandos = 0; // Contador de comandos adicionados.
+  uint8_t _pinoLigarMotor; // Pino digital ao qual o motor sera ligado.
+  uint8_t _pinoSentidoGiro; // Pino digital ao qual o motor mudara o sentido de rotação.
 public:
+  gerenciadorComando(uint8_t pinoLigarMotor, uint8_t pinoSentidoGiro); // Construtor com 2 parâmetros
+
+  void iniciar();// Inicializa o Motor e seus parâmetros.
+
   // Declara as funções de análise e processamento de comandos.
   Comando analisarComando(String comandoRecebido); // Analisa a string de comando e retorna uma estrutura Comando.
-  void processarComando(Comando comando, sensorOpticoPro& sensor); // Processa um comando, chamando a função de tratamento correspondente.
-
+  void processarComando(Comando comando, sensorOpticoPro &sensor); // Processa um comando, chamando a função de tratamento correspondente.
+  void tratarStatus(Comando comando, sensorOpticoPro &sensor);
+  void tratarLigarMotor(Comando comando, sensorOpticoPro &sensor);
+  void tratarDesligarMotor(Comando comando, sensorOpticoPro &sensor);
+  void tratarSentidoGiro(Comando comando, sensorOpticoPro &sensor);
+  void tratarConfigurarParametrosSensorOptico(Comando comando, sensorOpticoPro &sensor);
+  void tratarRpmMaximo(Comando comando, sensorOpticoPro &sensor);
+  void tratarNumRiscos(Comando comando, sensorOpticoPro &sensor);
+  void tratarFatorAjusteLimiar(Comando comando, sensorOpticoPro &sensor);
+  void tratarNumAmostrasLimiar(Comando comando, sensorOpticoPro &sensor);
+  void tratarNumAmostrasDetecMov(Comando comando, sensorOpticoPro &sensor);
+  void tratarAjustarDistanciaSensorOptico(Comando comando, sensorOpticoPro &sensor);
+  void tratarPararAjusteDistanciaSensorOptico(Comando comando, sensorOpticoPro &sensor);
+  void tratarLerRPM(Comando comando, sensorOpticoPro &sensor);
+  void tratarPararLeituraRpm(Comando comando, sensorOpticoPro &sensor);
+  void tratarAjuda(Comando comando, sensorOpticoPro &sensor);
 
 };
 
