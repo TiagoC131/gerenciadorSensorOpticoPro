@@ -3,7 +3,7 @@
 #include "gerenciadorComandos.h" // Biblioteca Utilizada Para Gerenciar Comandos
 
 // Variaveis Globais
-  const int MAX_BUFFER_SIZE = 64; // Tamanho máximo do buffer
+  const int MAX_BUFFER_SIZE = 90; // Tamanho máximo do buffer
   char comandoRecebidoBuffer[MAX_BUFFER_SIZE];
   int comandoRecebidoIndex = 0;
   String comandoRecebido; //Armazena o comando Recebido
@@ -12,15 +12,28 @@
 const int ledPin = 13; // Pino do LED interno
 const int sensorOpticoPin = 2; // Terminal do Sinal do Sensor Óptico
 
+// Pinos de Controle do Inversor
+const int ligaDesligaPin = 3;
+const int sentidoGiroPin = 4;
+const int retardaPin = 5;
+const int avancaPin = 6;
+
 //Intanciar Classes
-sensorOpticoPro sensorOptico(sensorOpticoPin); // Assumindo que os pinos de comunicação do Sensor Optico
-gerenciadorComando gerenciador; // <--- CRIA O OBJETO 'gerenciador'
+sensorOpticoPro sensorOptico(sensorOpticoPin); // Assumindo os pinos de comunicação do Sensor Optico
+gerenciadorComando gerenciador (ligaDesligaPin, sentidoGiroPin); // Assumindo os pinos de comunicação do Motor
 
 void setup() {  
   //Comunicação Serial com o Sistema
-  Serial.begin(9600); // Porta Serial (Servidor Node)
+  Serial.begin(1000000); // Porta Serial (Servidor Node)
     pinMode(ledPin, OUTPUT); // LED interno
   
+    // Configura os pinos do inversor como saída
+    pinMode(retardaPin, OUTPUT);
+    pinMode(avancaPin, OUTPUT);
+
+  //Comunicação Direta com o Motor
+  gerenciador.iniciar(); // Inicializar a comunicação com o Sensor Óptico 
+
   //Comunicação Direta com o Sensor Óptico
   sensorOptico.iniciar(); // Inicializar a comunicação com o Sensor Óptico 
 }
@@ -65,11 +78,6 @@ void loop() {
                   break;
               }
           }
-          if(!comandoEncontrado){
-            Serial.print("O comando '");
-            Serial.print(comando.nome);
-            Serial.println("' não existe. Use o comando 'ajuda' para ver a lista de comandos válidos.");
-          }
       } else {
           Serial.println("Comando inválido ou vazio.");
       }
@@ -77,10 +85,39 @@ void loop() {
       comandoRecebidoIndex = 0; // Reseta o índice *APÓS* processar o comando
     } else {
        comandoRecebidoIndex = 0; // Reseta o índice caso receba apenas quebras de linha
-  
-      // Aqui você pode colocar o código para leitura continua do sensor se necessário
-      // anguloAtual += sensorOptico.getDeltaAngulo(); // Um exemplo de uso
-      //sensorOptico.calcularRPM();
     }
   }
+
+
+    // Controle do Inversor via Teclado (NOVAS FUNÇÕES)
+    if (Serial.available() > 0) {
+        char tecla = Serial.read();
+
+        if (tecla == '5') { // F5 (Avança)
+            digitalWrite(avancaPin, HIGH);
+        } else {
+            digitalWrite(avancaPin, LOW);
+        }
+
+        if (tecla == '6') { // F6 (Retarda)
+            digitalWrite(retardaPin, HIGH);
+        } else {
+            digitalWrite(retardaPin, LOW);
+        }
+    }
+
+  // Esta parte controla as Funções do Sensor Óptico e deve permanecer dentro do loop(), pois precisa ser executada repetidamente para funcionar.
+  // Ela não usa diretamente a tabelaComandos, mas depende das variáveis globais do Gerenciador de Comandos.
+  
+  // Controla o ajuste da distancia entre o sensor óptico e o disco decodificador.
+  if (ajustarDistanciaSensor_Ativo) { // Verifica se o Ajuste do Sensor Óptico está ativo
+    sensorOptico.ajustarDistanciaSensorOptico(); // Chama a função da biblioteca sensorOpticoPro para ajustar distancia do Sensor
+  }
+
+  // Controla a leitura do RPM.
+  if (lerRPMSensor_Ativo) { // Verifica se a leitura do RPM do Sensor Óptico está ativo
+    //sensorOptico.iniciarSensorOptico(); // Chama a função da biblioteca sensorOpticoPro para ler o RPM
+    sensorOptico.calcularRPM(); // Chama a função da biblioteca sensorOpticoPro para ler o RPM
+  }
+
 }
