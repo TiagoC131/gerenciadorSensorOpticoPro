@@ -44,6 +44,40 @@
 #include "sensorOpticoPro.h" // Biblioteca Utilizada Para Comunicação com o Sensor Óptico.
 #include "gerenciadorComandos.h" // Inclui o cabeçalho desta biblioteca.
 
+// Declaração das variáveis globais (definidas aqui, declaradas com 'extern' no .h)
+bool ajustarDistanciaSensor_Ativo = false;            // Flag que indica se o modo de Ajuste do Sensor esta Ativo.
+bool lerRPMSensor_Ativo = false;                      // Flag que indica se o modo de Leitura do RPM esta Ativo.
+
+/******************************************************************************
+ * Definir Construtor
+ ******************************************************************************/
+
+gerenciadorComando::gerenciadorComando(uint8_t pinoLigarMotor, uint8_t pinoSentidoGiro) 
+	: _pinoLigarMotor(pinoLigarMotor), _pinoSentidoGiro(pinoSentidoGiro)
+{
+    // Configura os pinos do inversor como saída
+    pinMode(_pinoLigarMotor, OUTPUT);
+    pinMode(_pinoSentidoGiro, OUTPUT);
+}
+
+/******************************************************************************
+ * Definir API de Usúario
+ ******************************************************************************/
+
+void gerenciadorComando::iniciar()
+{
+ 	// **Inicialização das variáveis:**
+    // Nesta função, as variáveis globais são inicializadas com seus valores padrão.
+    // **Importante:** Valores atribuídos a variáveis globais dentro do `setup()` persistem durante toda a execução do programa,
+    // a menos que sejam explicitamente modificados em outro ponto do código. 
+    // Isso significa que qualquer alteração feita em uma variável global dentro do `loop()` ou em outra função será mantida. 
+
+	// Reset das Variaveis - Os valores Utilizados são Valores Padrões
+
+//  digitalWrite(_pinoLigarMotor, LOW); // Motor Desligado
+//  digitalWrite(_pinoSentidoGiro, LOW); // Sentido de Giro
+}
+
 // Funções de tratamento dos comandos
 void tratarStatus(Comando comando, sensorOpticoPro &sensor) { // Verifica o Status da Conexão Serial
 
@@ -59,6 +93,61 @@ void tratarStatus(Comando comando, sensorOpticoPro &sensor) { // Verifica o Stat
 	  Serial.println("online"); // Imprime "online" na Serial, indicando que o sistema está funcionando
 }
 
+// Funções de tratamento dos comandos
+void tratarLigarMotor(Comando comando, sensorOpticoPro &sensor) { // Liga o Motor
+
+  //As partes comentadas foram removidas pois serão implementadas no sistema web para economizar memoria da placa.
+  /*
+  if (comando.numValores != 0) {
+    Serial.println("Erro: A função 'ligarMotor' não espera nenhum parâmetro.");
+    Serial.print("Número de parâmetros fornecidos: ");
+    Serial.println(comando.numValores);
+    return; // Saída antecipada da função em caso de erro
+  } /* */
+  
+    digitalWrite(_pinoLigarMotor, HIGH);
+    Serial.println("Motor Ligado");
+
+}
+
+// Funções de tratamento dos comandos
+void tratarDesligarMotor(Comando comando, sensorOpticoPro &sensor) { //Desliga o Motor
+
+  //As partes comentadas foram removidas pois serão implementadas no sistema web para economizar memoria da placa.
+  /*
+  if (comando.numValores != 0) {
+    Serial.println("Erro: A função 'desligarMotor' não espera nenhum parâmetro.");
+    Serial.print("Número de parâmetros fornecidos: ");
+    Serial.println(comando.numValores);
+    return; // Saída antecipada da função em caso de erro
+  } /* */
+
+    digitalWrite(_pinoLigarMotor, LOW);
+    Serial.println("Motor Desligado");
+}
+
+// Funções de tratamento dos comandos
+void tratarSentidoGiro(Comando comando, sensorOpticoPro &sensor) { // Verifica o Status da Conexão Serial
+
+  //As partes comentadas foram removidas pois serão implementadas no sistema web para economizar memoria da placa.
+  /*
+  if (comando.numValores != 0) {
+    Serial.println("Erro: A função 'sentidoGiro' não espera nenhum parâmetro.");
+    Serial.print("Número de parâmetros fornecidos: ");
+    Serial.println(comando.numValores);
+    return; // Saída antecipada da função em caso de erro
+  } /* */
+
+    if(digitalRead(_pinoSentidoGiro) == HIGH){
+      digitalWrite(_pinoSentidoGiro, LOW);
+      Serial.println("Sentido de giro invertido para Anti-Horario");
+    } else {
+      digitalWrite(_pinoSentidoGiro, HIGH);
+      Serial.println("Sentido de giro invertido para Horario");
+    }
+
+} /* */
+
 void tratarConfigurarParametrosSensorOptico(Comando comando, sensorOpticoPro &sensor) { // Configura novo Número de Riscos do Disco e Rpm Solicitado caso seja nescessario.
   
   //As partes comentadas foram removidas pois serão implementadas no sistema web para economizar memoria da placa.
@@ -72,7 +161,7 @@ void tratarConfigurarParametrosSensorOptico(Comando comando, sensorOpticoPro &se
 
   // Converter valores para int 
   int intNumRiscos = comando.valores[0].toInt(); 
-  int intRpmDesejado = comando.valores[1].toInt();
+  int intRpmMaximo = comando.valores[1].toInt();
 
   //As partes comentadas foram removidas pois serão implementadas no sistema web para economizar memoria da placa.
   /*
@@ -83,55 +172,55 @@ void tratarConfigurarParametrosSensorOptico(Comando comando, sensorOpticoPro &se
     return; // Saída antecipada da função em caso de erro
   }
 
-  if (intRpmDesejado < 1 || intRpmDesejado > 65535) {
-    Serial.println("Erro: O valor para 'rpmDesejado' deve estar entre 1 e 65535.");
+  if (intRpmMaximo < 1 || intRpmMaximo > 65535) {
+    Serial.println("Erro: O valor para 'rpmMaximo' deve estar entre 1 e 65535.");
     Serial.print(" Valor fornecido: ");
-    Serial.println(intRpmDesejado);
+    Serial.println(intRpmMaximo);
     return; // Saída antecipada da função em caso de erro
   } /* */
   
   uint8_t numRiscos = (uint8_t)intNumRiscos; // Converter para uint8_t
-  uint16_t rpmDesejado = (uint16_t )intRpmDesejado; // Converter para uint16_t
+  uint16_t rpmMaximo = (uint16_t )intRpmMaximo; // Converter para uint16_t
 
-  sensor.configurarParametrosSensorOptico(numRiscos, rpmDesejado); // Chama a função da biblioteca sensorOpticoPro para configurar os parâmetros
+  sensor.configurarParametrosSensorOptico(numRiscos, rpmMaximo); // Chama a função da biblioteca sensorOpticoPro para configurar os parâmetros
   //As partes comentadas foram removidas pois serão implementadas no sistema web para economizar memoria da placa.
   /*
   Serial.print("Parâmetros do sensor óptico configurados:");
   Serial.print(" Número de riscos (pulsos por ciclo): ");
   Serial.print(numRiscos);
   Serial.print(", RPM desejado: ");
-  Serial.println(rpmDesejado);
+  Serial.println(rpmMaximo);
   /* */
 }
 
-void tratarRpmDesejado(Comando comando, sensorOpticoPro &sensor) { //Configura novo Rpm caso seja nescessario.
+void tratarRpmMaximo(Comando comando, sensorOpticoPro &sensor) { //Configura novo Rpm caso seja nescessario.
 
   //As partes comentadas foram removidas pois serão implementadas no sistema web para economizar memoria da placa.
   /*
   if (comando.numValores != 1) {
-    Serial.println("Erro: A função 'rpmDesejado' espera exatamente um parâmetro.");
+    Serial.println("Erro: A função 'rpmMaximo' espera exatamente um parâmetro.");
     Serial.print("Número de parâmetros fornecidos: ");
     Serial.println(comando.numValores);
     return; // Saída antecipada da função em caso de erro
   } /* */
 
-  int intRpmDesejado = comando.valores[0].toInt(); // Converte para int primeiro
+  int intRpmMaximo = comando.valores[0].toInt(); // Converte para int primeiro
 
   //As partes comentadas foram removidas pois serão implementadas no sistema web para economizar memoria da placa.
   /*
-  if (intRpmDesejado < 1 || intRpmDesejado > 65535) {
-    Serial.println("Erro: O valor para 'rpmDesejado' deve estar entre 1 e 65535.");
+  if (intRpmMaximo < 1 || intRpmMaximo > 65535) {
+    Serial.println("Erro: O valor para 'rpmMaximo' deve estar entre 1 e 65535.");
     Serial.print(" Valor fornecido: ");
-    Serial.println(intRpmDesejado);
+    Serial.println(intRpmMaximo);
     return; // Saída antecipada da função em caso de erro
   } /* */
 
-  uint16_t rpmDesejado = static_cast<uint16_t>(intRpmDesejado); // Conversão mais segura
-  sensor.novoRpmDesejado(rpmDesejado);
+  uint16_t rpmMaximo = static_cast<uint16_t>(intRpmMaximo); // Conversão mais segura
+  sensor.novoRpmMaximo(rpmMaximo);
   //As partes comentadas foram removidas pois serão implementadas no sistema web para economizar memoria da placa.
   /*
   Serial.print("RPM Desejado configurado: ");
-  Serial.println(sensor.lerRpmDesejado());
+  Serial.println(sensor.lerRpmMaximo());
   /* */
 }
 
@@ -303,10 +392,30 @@ void tratarAjustarDistanciaSensorOptico(Comando comando, sensorOpticoPro &sensor
     return; // Saída antecipada da função em caso de erro
   } /* */
 
-  sensor.ajustarDistanciaSensorOptico(); // Chama a função da biblioteca sensorOpticoPro para ajustar distancia do Sensor
+  Serial.println(F("Ajuste da distancia entre Sensor Óptico e Disco Decodificador iniciado!"));
+
+  // Ativa a flag `ajustarDistanciaSensorOptico`, indicando que o modo de piscar está em execução.
+  ajustarDistanciaSensor_Ativo = true;
 } 
 
-void tratarLerRPM(Comando comando, sensorOpticoPro &sensor) { // Utilizado para Ler o RPM atual
+void tratarPararAjusteDistanciaSensorOptico(Comando comando, sensorOpticoPro &sensor) { // Utilizado para ajustar a distancia do Sensor Óptico.
+
+  //As partes comentadas foram removidas pois serão implementadas no sistema web para economizar memoria da placa.
+  /*
+  if (comando.numValores != 0) {
+    Serial.println("Erro: A função 'ajustarDistanciaSensorOptico' não espera nenhum parâmetro.");
+    Serial.print("Número de parâmetros fornecidos: ");
+    Serial.println(comando.numValores);
+    return; // Saída antecipada da função em caso de erro
+  } /* */
+
+  Serial.println(F("Ajuste da distancia entre Sensor Óptico e Disco Decodificador finalizado!"));
+
+  // Desativa a flag `ajustarDistanciaSensorOptico`, indicando que o modo de piscar está em execução.
+  ajustarDistanciaSensor_Ativo = false;
+} 
+
+void tratarLerRPM(Comando comando) { // Utilizado para Ler o RPM atual
 
   //As partes comentadas foram removidas pois serão implementadas no sistema web para economizar memoria da placa.
   /*
@@ -317,11 +426,30 @@ void tratarLerRPM(Comando comando, sensorOpticoPro &sensor) { // Utilizado para 
     return; // Saída antecipada da função em caso de erro
   } /* */
 
-  sensor.iniciarSensorOptico(); // Chama a função da biblioteca sensorOpticoPro para Ler RPM
+    Serial.println("Leitura de RPM iniciada!");
+
+  // Ativa a flag `ajustarDistanciaSensorOptico`, indicando que o modo de piscar está em execução.
+  lerRPMSensor_Ativo = true;
+}  
+
+void tratarPararLeituraRpm(Comando comando, sensorOpticoPro &sensor) { // Utilizado para Ler o RPM atual
+
+  //As partes comentadas foram removidas pois serão implementadas no sistema web para economizar memoria da placa.
+  /*
+  if (comando.numValores != 0) {
+    Serial.println("Erro: A função 'pararLeituraRpm' não espera nenhum parâmetro.");
+    Serial.print("Número de parâmetros fornecidos: ");
+    Serial.println(comando.numValores);
+    return; // Saída antecipada da função em caso de erro
+  } /* */
+
+  Serial.println(F("Leitura de RPM finalizada!"));
+  // Desativa a flag `ajustarDistanciaSensorOptico`, indicando que o modo de piscar está em execução.
+  lerRPMSensor_Ativo = false;
 }  
 
 // Funções de tratamento dos comandos
-void tratarAjuda(Comando comando, sensorOpticoPro &sensor) { // Verifica o Status da Conexão Serial
+void tratarAjuda(Comando comando) { // Verifica o Status da Conexão Serial
 
   //As partes comentadas foram removidas pois serão implementadas no sistema web para economizar memoria da placa.
   /*
@@ -337,7 +465,7 @@ void tratarAjuda(Comando comando, sensorOpticoPro &sensor) { // Verifica o Statu
 	Serial.println("status: status: Exibe o estado atual do sistema.");
 	Serial.println("configurarParametrosSensorOptico: Define os parâmetros do sensor óptico, como número de riscos e RPM desejado.");
 	Serial.println("numRiscos: Define a quantidade de pulsos por ciclo do disco decodificador.");
-	Serial.println("rpmDesejado: Define a velocidade de rotação (RPM) desejada para o disco decodificador.");
+	Serial.println("rpmMaximo: Define a velocidade de rotação (RPM) desejada para o disco decodificador.");
 	Serial.println("fatorAjusteLimiar: Define o fator de ajuste para o cálculo do limiar de detecção, compensando variações na iluminação ambiente.");
 	Serial.println("numAmostrasLimiar: Define o número de amostras usadas para calcular o limiar ideal.");
 	Serial.println("numAmostrasDetecMov: Define o número de amostras usadas para detectar movimento.");
@@ -349,76 +477,96 @@ void tratarAjuda(Comando comando, sensorOpticoPro &sensor) { // Verifica o Statu
 }
 
 ComandoInfo tabelaComandos[] = { // Tabela de despacho que associa nomes de comandos a funções de tratamento.
-    {"status", tratarStatus}, // Associa o comando "status" à função tratarStatus
-    {"configurarParametrosSensorOptico", tratarConfigurarParametrosSensorOptico}, // Associa o comando "configurarParametrosSensorOptico" à função tratarConfigurarParametrosSensorOptico
-    {"rpmDesejado", tratarRpmDesejado}, // Associa o comando "rpmDesejado" à função tratarRpmDesejado
-    {"numRiscos", tratarNumRiscos}, // Associa o comando "numRiscos" à função tratarRpmDesejado
-    {"fatorAjusteLimiar", tratarFatorAjusteLimiar}, // Associa o comando "fatorAjusteLimiar" à função tratarFatorAjusteLimiar
-    {"numAmostrasLimiar", tratarNumAmostrasLimiar}, // Associa o comando "numAmostrasLimiar" à função tratarNumAmostrasLimiar
-    {"numAmostrasDetecMov", tratarNumAmostrasDetecMov}, // Associa o comando "numAmostrasDetecMov" à função tratarNumAmostrasDetecMov
-    {"ajustarDistanciaSensorOptico", tratarAjustarDistanciaSensorOptico}, // Associa o comando "ajustarDistanciaSensorOptico" à função tratarAjustarDistanciaSensorOptico
-    {"lerRPM", tratarLerRPM}, // Associa o comando "lerRPM" à função tratarLerRPM
-    {"ajuda", tratarAjuda}, // Associa o comando "ajuda" à função tratarAjuda
-    {nullptr, nullptr} // Marcador de fim da tabela (obrigatório)
+  {"status", tratarStatus}, // Associa o comando "status" à função tratarStatus
+  {"ligarMotor", tratarLigarMotor}, // Associa o comando "ligarMotor" à função tratarLigarMotor
+  {"desligarMotor", tratarDesligarMotor}, // Associa o comando "desligarMotor" à função tratarDesligarMotor
+  {"sentidoGiro", tratarSentidoGiro}, // Associa o comando "sentidoGiro" à função tratarSentidoGiro
+  {"lerRPM", tratarLerRPM}, // Associa o comando "lerRPM" à função tratarLerRPM
+  {"configurarParametrosSensorOptico", tratarConfigurarParametrosSensorOptico}, // Associa o comando "configurarParametrosSensorOptico" à função tratarConfigurarParametrosSensorOptico
+  {"rpmMaximo", tratarRpmMaximo}, // Associa o comando "rpmMaximo" à função tratarRpmMaximo
+  {"numRiscos", tratarNumRiscos}, // Associa o comando "numRiscos" à função tratarRpmMaximo
+  {"fatorAjusteLimiar", tratarFatorAjusteLimiar}, // Associa o comando "fatorAjusteLimiar" à função tratarFatorAjusteLimiar
+  {"numAmostrasLimiar", tratarNumAmostrasLimiar}, // Associa o comando "numAmostrasLimiar" à função tratarNumAmostrasLimiar
+  {"numAmostrasDetecMov", tratarNumAmostrasDetecMov}, // Associa o comando "numAmostrasDetecMov" à função tratarNumAmostrasDetecMov
+  {"ajustarSensor", tratarAjustarDistanciaSensorOptico}, // Associa o comando "ajustarDistanciaSensorOptico" à função tratarAjustarDistanciaSensorOptico
+  {"pararAjuste", tratarPararAjusteDistanciaSensorOptico}, // Associa o comando "pararAjuste" à função tratarPararAjusteDistanciaSensorOptico
+  {"lerRPM", tratarLerRPM}, // Associa o comando "lerRPM" à função tratarLerRPM
+  {"pararLeituraRPM", tratarPararLeituraRpm}, // Associa o comando "pararLeituraRpm" à função tratarPararLeituraRpm
+  {"ajuda", tratarAjuda}, // Associa o comando "ajuda" à função tratarAjuda
+  {nullptr, nullptr} // Marcador de fim da tabela (obrigatório)
 };
 
 Comando gerenciadorComando::analisarComando(String comandoRecebido) {
-	/*
-  * Objetivo: a Função analisa uma string de comando recebida, separando o nome do comando e seus valores numéricos.
-  * Parâmetro: comandoRecebido - A string contendo o comando e seus valores. Ex: "MOTOR 10.5 20 30"
-  * Retorno: Um struct Comando contendo o nome do comando e um array de até 5 valores numéricos.
-  */
+  /*
+   * Objetivo: Esta função analisa uma string de comando recebida, separando o nome do comando e seus valores numéricos.
+   * Parâmetro: comandoRecebido - A string contendo o comando e seus valores. Ex: "piscarLed 10 200 300"
+   * Retorno: Um struct Comando contendo o nome do comando e um array de até o maximo de valores numéricos (representados como strings, para posterior conversão).
+   */
 
-    Comando comando; // Cria uma instância (variavel) da struct Comando.
-    comando.nome = ""; // Reseta o nome do comando para evitar lixo de memória
-    comando.numValores = 0; // Reseta o número de valores para evitar lixo de memória
-    for (int i = 0; i < Comando::maxValores; i++) {  // Reseta os valores
-        comando.valores[i] = ""; // Inicializa as strings
-    }
-    comandoRecebido.trim(); // Remove espaços em branco extras no início e no final da string recebida. Ex: "  MOTOR 10 " vira "MOTOR 10"
+  Comando comando; // Cria uma variável chamada comando do tipo struct Comando. Essa variável armazenará as informações do comando que será analisado.
+  comando.nome = ""; // Limpa o nome do comando, colocando uma string vazia. Isso evita que restos de comandos anteriores causem erros.
+  comando.numValores = 0; // Zera o contador de valores. Assim como o nome, isso evita que valores antigos interfiram na análise do novo comando.
+  for (int i = 0; i < Comando::maxValores; i++) { // Este loop percorre o array de valores dentro do struct Comando.
+    comando.valores[i] = ""; // Inicializa cada posição do array de valores com uma string vazia. Importante para evitar "lixo" na memória.
+  }
+  comandoRecebido.trim(); // Remove espaços em branco extras no início e no final da string recebida. Por exemplo: "   piscarLed 10 " se torna "piscarLed 10".
 
-    if (comandoRecebido.length() == 0) return comando; // Retorna comando vazio se a string estiver vazia
+  if (comandoRecebido.length() == 0) return comando; // Se a string estiver vazia (só espaços ou nada), retorna o comando vazio. Isso evita erros ao tentar processar uma string sem conteúdo.
 
-    int pos = comandoRecebido.indexOf(' ');// Encontra a posição do primeiro espaço em branco na string.
+  int pos = comandoRecebido.indexOf(' '); // Procura o primeiro espaço em branco na string. Este espaço separa o nome do comando dos seus valores.
                                           // Se não houver espaço, pos será -1.
 
-    if (pos != -1) { // Se encontrou um espaço (ou seja, o comando tem pelo menos um valor)
+  if (pos != -1) { // Verifica se encontrou um espaço. Se sim, significa que o comando tem pelo menos um valor.
 
-        comando.nome = comandoRecebido.substring(0, pos); // Extrai o nome do comando, que é a parte da string antes do primeiro espaço.
-                                                          // Ex: Se comandoRecebido é "MOTOR 10", comando.nome será "MOTOR".
-        comandoRecebido = comandoRecebido.substring(pos + 1); // Atualiza a string comandoRecebido para conter apenas os valores,
-                                                              // removendo o nome do comando e o espaço.
-                                                              // Ex: Se antes era "MOTOR 10 20", agora será "10 20".
-        comandoRecebido.trim(); // Remove espaços extras entre os valores
+    comando.nome = comandoRecebido.substring(0, pos); // Extrai o nome do comando. É a parte da string que vem antes do primeiro espaço.
+                                                      // Ex: Se comandoRecebido é "piscarLed 10", comando.nome será "piscarLed".
+    comandoRecebido = comandoRecebido.substring(pos + 1); // Remove o nome do comando e o espaço da string original, deixando apenas os valores.
+                                                          // Ex: Se antes era "piscarLed 10 200", agora será "10 200".
+    comandoRecebido.trim(); // Remove espaços extras entre os valores, como múltiplos espaços entre "10" e "200".
 
-        int i = 0; // Inicializa um contador para controlar quantos valores foram lidos.
-        while (i < Comando::maxValores && comandoRecebido.length() > 0) { // Loop que lê até 5 valores ou até que a string comandoRecebido fique vazia.
-                                                        // O limite de 5 valores protege contra estouro de buffer em comando.valores.
-            pos = comandoRecebido.indexOf(' '); // Encontra a posição do próximo espaço em branco.
-            
-            if (pos != -1) {
-                comando.valores[i] = comandoRecebido.substring(0, pos);
-                comandoRecebido = comandoRecebido.substring(pos + 1);
-                comandoRecebido.trim();
-            } else {
-                comando.valores[i] = comandoRecebido;
-                comandoRecebido = "";
-            }
-            i++;
-        }
-        comando.numValores = i; // Guarda a quantidade total de valores numéricos que foram lidos e armazenados.
-    } else { // Se não encontrou nenhum espaço na string original (o comando não tem valores)
-    
-        comando.nome = comandoRecebido; // O comando é a string inteira.
+    int i = 0; // Cria um contador para controlar quantos valores foram lidos.
+    while (i < Comando::maxValores && comandoRecebido.length() > 0) { // Loop que lê os valores. Ele continua enquanto não atingir o limite máximo de valores (Comando::maxValores) e enquanto ainda houver texto na string comandoRecebido.
+                                                                    // O limite maximo de valores protege contra erros de acessar posições inválidas na memória (estouro de buffer) em comando.valores.
+      pos = comandoRecebido.indexOf(' '); // Procura o próximo espaço em branco.
+
+      if (pos != -1) { // Se encontrou um espaço, significa que ainda há mais valores a serem lidos.
+        comando.valores[i] = comandoRecebido.substring(0, pos); // Extrai o valor atual (até o próximo espaço).
+        comandoRecebido = comandoRecebido.substring(pos + 1); // Remove o valor lido e o espaço da string.
+        comandoRecebido.trim(); // Remove espaços extras após o valor lido.
+      } else { // Se não encontrou espaço, significa que este é o último valor.
+        comando.valores[i] = comandoRecebido; // Extrai o último valor restante.
+        comandoRecebido = ""; // Limpa a string comandoRecebido para encerrar o loop.
+      }
+      i++; // Incrementa o contador de valores lidos.
     }
-    return comando; // Retorna o struct Comando preenchido.
+    comando.numValores = i; // Armazena a quantidade total de valores numéricos que foram lidos.
+  } else { // Se não encontrou nenhum espaço na string original, significa que o comando não tem valores.
+
+    comando.nome = comandoRecebido; // O nome do comando é a string inteira. Ex: "piscarLed".
+  }
+  return comando; // Retorna o struct Comando preenchido com o nome do comando e seus valores.
 }
 
 void gerenciadorComando::processarComando(Comando comando, sensorOpticoPro &sensor) {
-  for (int i = 0; tabelaComandos[i].nome != nullptr; i++) {  // Loop que percorre a tabela de comandos 'tabelaComandos'. O loop continua enquanto o campo 'nome' da entrada atual da tabela não for nulo (nullptr), que indica o fim da tabela.
-    if (comando.nome.equals(tabelaComandos[i].nome) == 0) { // Compara o nome do comando extraído com o nome do comando na tabela.
-      tabelaComandos[i].funcao(comando, sensor); // Se o comando for encontrado na tabela, chama a função de tratamento correspondente. 'tabelaComandos[i].funcao' é um ponteiro para a função. Os valores ‘comando’ e ‘sensor’ são repassados para a função de tratamento.
-      return; // Sai da função 'processarComando' após executar o comando.
+  // Esta função recebe um struct Comando (que contém o nome do comando e seus valores) e procura na tabela de comandos a função que deve ser executada para esse comando.
+
+  for (int i = 0; tabelaComandos[i].nome != nullptr; i++) {  // Loop que percorre a tabela de comandos 'tabelaComandos'.
+    // A tabela 'tabelaComandos' é uma lista de pares: nome do comando e a função que o executa.
+    // O loop continua enquanto não chegar ao final da tabela, que é marcado por um 'nullptr' no campo 'nome'.
+    // 'i' é o índice que indica a posição atual na tabela.
+
+    if (comando.nome == tabelaComandos[i].nome) { // Verifica se o nome do comando que foi recebido ('comando.nome') é igual ao nome de um comando que está na tabela ('tabelaComandos[i].nome').
+      // Esta é a parte principal da função: encontrar o comando correto na tabela.
+
+      tabelaComandos[i].funcao(comando, sensor); // Se encontrou o comando na tabela, esta linha chama a função correspondente para executar o comando.
+      // 'tabelaComandos[i].funcao' é um "ponteiro para função". Isso significa que ele armazena o endereço da função que deve ser executada.
+      // O 'comando' é passado como argumento para a função de tratamento, para que a função tenha acesso aos valores que foram enviados junto com o comando.
+
+      return; // Após executar a função do comando, a função 'processarComando' termina. Isso evita que o loop continue procurando, o que seria desnecessário.
     }
   }
+    // Se o loop terminar sem encontrar o comando:
+  Serial.print("O comando '"); // Imprime uma mensagem indicando que o comando é inválido.
+  Serial.println(comando.nome);       // Imprime o nome do comando que foi digitado incorretamente.
+  Serial.println("' não existe. Digite 'ajuda' para listar os comandos disponíveis.");
 }
