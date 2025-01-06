@@ -96,13 +96,13 @@ extern ComandoInfo tabelaComandos[]; //O uso de extern é crucial para evitar er
 extern bool ajustarDistanciaSensor_Ativo;  // Indica se o modo de ajuste do Sensor Óptico está ativo.
 extern bool lerRPMSensor_Ativo;            // Indica se o modo de leitura do RPM do Sensor Óptico está ativo.
 
-class gerenciadorComando {
+class gerenciadorComandos {
 private:
     //int numComandos = 0; // Contador de comandos adicionados.
   uint8_t _pinoLigarMotor; // Pino digital ao qual o motor sera ligado.
   uint8_t _pinoSentidoGiro; // Pino digital ao qual o motor mudara o sentido de rotação.
 public:
-  gerenciadorComando(uint8_t pinoLigarMotor, uint8_t pinoSentidoGiro); // Construtor com 2 parâmetros
+  gerenciadorComandos(uint8_t pinoLigarMotor, uint8_t pinoSentidoGiro); // Construtor com 2 parâmetros
 
   void iniciar();// Inicializa o Motor e seus parâmetros.
 
