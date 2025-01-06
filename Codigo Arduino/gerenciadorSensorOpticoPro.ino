@@ -20,7 +20,8 @@ const int avancaPin = 6;
 
 //Intanciar Classes
 sensorOpticoPro sensorOptico(sensorOpticoPin); // Assumindo os pinos de comunicação do Sensor Optico
-gerenciadorComandos gerenciador (ligaDesligaPin, sentidoGiroPin); // Assumindo os pinos de comunicação do Motor
+gerenciadorComandos gerenciadorDeComandos (ligaDesligaPin, sentidoGiroPin); // Assumindo os pinos de comunicação do Motor
+gerenciadorComando gerenciador; // Tratamento de Comandos
 
 void setup() {  
   //Comunicação Serial com o Sistema
@@ -32,7 +33,7 @@ void setup() {
     pinMode(avancaPin, OUTPUT);
 
   //Comunicação Direta com o Motor
-  gerenciador.iniciar(); // Inicializar a comunicação com o Sensor Óptico 
+  gerenciadorDeComandos.iniciar(); // Inicializar a comunicação com o Sensor Óptico 
 
   //Comunicação Direta com o Sensor Óptico
   sensorOptico.iniciar(); // Inicializar a comunicação com o Sensor Óptico 
