@@ -109,10 +109,10 @@ public:
   // Declara as funções de análise e processamento de comandos.
   Comando analisarComando(String comandoRecebido); // Analisa a string de comando e retorna uma estrutura Comando.
   void processarComando(Comando comando, sensorOpticoPro &sensor); // Processa um comando, chamando a função de tratamento correspondente.
-  void tratarStatus(Comando comando, sensorOpticoPro &sensor);
-  void tratarLigarMotor(Comando comando, sensorOpticoPro &sensor);
-  void tratarDesligarMotor(Comando comando, sensorOpticoPro &sensor);
-  void tratarSentidoGiro(Comando comando, sensorOpticoPro &sensor);
+  void tratarStatus(Comando comando);
+  void tratarLigarMotor(Comando comando);
+  void tratarDesligarMotor(Comando comando);
+  void tratarSentidoGiro(Comando comando);
   void tratarConfigurarParametrosSensorOptico(Comando comando, sensorOpticoPro &sensor);
   void tratarRpmMaximo(Comando comando, sensorOpticoPro &sensor);
   void tratarNumRiscos(Comando comando, sensorOpticoPro &sensor);
